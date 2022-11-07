@@ -42,32 +42,20 @@ namespace ZMKSplit
 
         private class BLEDevice
         {
-            private List<int> _batteryLevels;
-
             public string Name { get; set; }
             public BluetoothLEDevice Device { get; set; }
             public GattDeviceService GattService { get; set; }
             public IReadOnlyList<GattCharacteristic> GattCharacteristics { get; set; }
-            public List<int> BatteryLevels
-            {
-                get
-                {
-                    return _batteryLevels;
-                }
-                set
-                {
-                    _batteryLevels = value;
-                }
-            }
-            public int MinBatteryLevel { get; }
-
+            public List<int> BatteryLevels { get; set; }
+            public int MinBatteryLevel { get => BatteryLevels.Min(); }
+            
             public BLEDevice(string name, BluetoothLEDevice dev, GattDeviceService gattSrv, IReadOnlyList<GattCharacteristic> gattChrs)
             {
                 Name = name;
                 Device = dev;
                 GattService = gattSrv;
                 GattCharacteristics = gattChrs;
-                MinBatteryLevel = -1;
+                BatteryLevels = new List<int>();
             }
         };
 
@@ -189,7 +177,7 @@ namespace ZMKSplit
 
             if (selectedIndex != -1)
             {
-                bleDevice = new BLEDevice(di.Name, dev, gattServices.Services[i], gattCharacteristicsResults[selectedIndex]!.Characteristics);
+                bleDevice = new BLEDevice(di.Name, dev, gattServices.Services[selectedIndex], gattCharacteristicsResults[selectedIndex]!.Characteristics);
                 UpdateTrayIcon();
             }
             else
@@ -247,6 +235,7 @@ namespace ZMKSplit
                 iconName = "black-";
             }
             iconName += pcnt.ToString("d3");
+            object obj = ZMKSplit.Properties.Resources.ResourceManager.GetObject(iconName, ZMKSplit.Properties.Resources.Culture)!;
             return ((Icon)(obj));
         }
 
