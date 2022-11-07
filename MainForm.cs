@@ -19,9 +19,9 @@ using Windows.Storage.Streams;
 // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getlastinputinfo
 // 
 // TODO:
-//  - not connected icon
 //  - statuses
 //  - state machine? once device list enum is completed check if we're connecting/connected before setting "ready" etc
+//  - correctly abort awaits, crash on exit after ReadBatteryLevels->UpdateTrayIcon
 
 namespace ZMKSplit
 {
@@ -83,7 +83,11 @@ namespace ZMKSplit
             devicesListView.Items.Clear();
 
             string aqsFilter = "(System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\")";
-            string[] bleAdditionalProperties = { "System.Devices.Aep.DeviceAddress", "System.Devices.Aep.Bluetooth.Le.IsConnectable", };
+            string[] bleAdditionalProperties =
+            {
+                "System.Devices.Aep.DeviceAddress",
+                "System.Devices.Aep.Bluetooth.Le.IsConnectable",
+            };
             
             DeviceWatcher watcher = DeviceInformation.CreateWatcher(aqsFilter, bleAdditionalProperties, DeviceInformationKind.AssociationEndpoint);
             watcher.Added += (DeviceWatcher deviceWatcher, DeviceInformation di) =>
@@ -120,6 +124,7 @@ namespace ZMKSplit
                 return;
 
             bleDevice = null;
+            readBatteryLevelsTimer.Enabled = false;
 
             DeviceInformation di = (DeviceInformation)devicesListView.SelectedItems[0].Tag;
 
@@ -181,6 +186,7 @@ namespace ZMKSplit
                 bleDevice = new BLEDevice(di.Name, dev, gattServices.Services[selectedIndex], gattCharacteristicsResults[selectedIndex]!.Characteristics);
                 statusLabel.Text = String.Format(STATUS_CONNECTED, deviceTypeString, di.Name);
                 ReadBatteryLevels();
+                readBatteryLevelsTimer.Enabled = true;
             }
             else
             {
@@ -269,8 +275,18 @@ namespace ZMKSplit
 
         public void UpdateTrayIcon()
         {
-            notifyIcon.Icon = GetBatteryIcon(bleDevice != null ? bleDevice.MinBatteryLevel : -1);
-            notifyIcon.Text = "Hello";
+            if (bleDevice == null)
+            {
+                notifyIcon.Icon = GetBatteryIcon(-1);
+                notifyIcon.Text = "Not connected";
+                return;
+            }
+            notifyIcon.Icon = GetBatteryIcon(bleDevice!.MinBatteryLevel);
+            notifyIcon.Text = bleDevice!.Name + "\n";
+            for (int i = 0; i < bleDevice.BatteryLevels.Count; i++)
+            {
+                notifyIcon.Text += "\n" + bleDevice.GattCharacteristics[i].UserDescription + ": " + bleDevice.BatteryLevels[i] + "%";
+            }
         }
 
         private void reloadButton_MouseClick(object sender, MouseEventArgs e)
@@ -301,6 +317,11 @@ namespace ZMKSplit
             {
                 connectButton.Enabled = false;
             }
+        }
+
+        private void readBatteryLevelsTimer_Tick(object sender, EventArgs e)
+        {
+            ReadBatteryLevels();
         }
     }
 }

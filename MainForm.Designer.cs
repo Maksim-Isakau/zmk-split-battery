@@ -36,6 +36,7 @@
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.statusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.connectButton = new System.Windows.Forms.Button();
+            this.readBatteryLevelsTimer = new System.Windows.Forms.Timer(this.components);
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -68,7 +69,6 @@
             // 
             // notifyIcon
             // 
-            this.notifyIcon.Text = "notifyIcon";
             this.notifyIcon.Visible = true;
             // 
             // reloadButton
@@ -112,6 +112,11 @@
             this.connectButton.UseVisualStyleBackColor = true;
             this.connectButton.Click += new System.EventHandler(this.connectButton_Click);
             // 
+            // readBatteryLevelsTimer
+            // 
+            this.readBatteryLevelsTimer.Interval = 1000;
+            this.readBatteryLevelsTimer.Tick += new System.EventHandler(this.readBatteryLevelsTimer_Tick);
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
@@ -140,5 +145,6 @@
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel statusLabel;
         private System.Windows.Forms.Button connectButton;
+        private System.Windows.Forms.Timer readBatteryLevelsTimer;
     }
 }
