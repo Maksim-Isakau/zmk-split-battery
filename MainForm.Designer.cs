@@ -33,11 +33,10 @@
             this.NameColumn = new System.Windows.Forms.ColumnHeader();
             this.StatusColumn = new System.Windows.Forms.ColumnHeader();
             this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
-            this.refreshIntervalEditBox = new System.Windows.Forms.TextBox();
-            this.label1 = new System.Windows.Forms.Label();
             this.reloadButton = new System.Windows.Forms.Button();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.statusLabel = new System.Windows.Forms.ToolStripStatusLabel();
+            this.connectButton = new System.Windows.Forms.Button();
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -61,6 +60,7 @@
             this.devicesListView.TabIndex = 0;
             this.devicesListView.UseCompatibleStateImageBehavior = false;
             this.devicesListView.View = System.Windows.Forms.View.Details;
+            this.devicesListView.ItemSelectionChanged += new System.Windows.Forms.ListViewItemSelectionChangedEventHandler(this.devicesListView_ItemSelectionChanged);
             this.devicesListView.DoubleClick += new System.EventHandler(this.devicesListView_DoubleClick);
             // 
             // NameColumn
@@ -79,37 +79,15 @@
             this.notifyIcon.Text = "notifyIcon";
             this.notifyIcon.Visible = true;
             // 
-            // refreshIntervalEditBox
-            // 
-            this.refreshIntervalEditBox.AcceptsReturn = true;
-            this.refreshIntervalEditBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.refreshIntervalEditBox.Location = new System.Drawing.Point(538, 90);
-            this.refreshIntervalEditBox.MaxLength = 5;
-            this.refreshIntervalEditBox.Name = "refreshIntervalEditBox";
-            this.refreshIntervalEditBox.Size = new System.Drawing.Size(66, 23);
-            this.refreshIntervalEditBox.TabIndex = 1;
-            this.refreshIntervalEditBox.Text = "3600";
-            this.refreshIntervalEditBox.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.refreshIntervalEditBox.TextChanged += new System.EventHandler(this.MainForm_Load);
-            // 
-            // label1
-            // 
-            this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(411, 72);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(193, 15);
-            this.label1.TabIndex = 2;
-            this.label1.Text = "Refresh battery status interval (sec):";
-            // 
             // reloadButton
             // 
             this.reloadButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.reloadButton.Location = new System.Drawing.Point(411, 12);
+            this.reloadButton.FlatStyle = System.Windows.Forms.FlatStyle.System;
+            this.reloadButton.Location = new System.Drawing.Point(407, 12);
             this.reloadButton.Name = "reloadButton";
-            this.reloadButton.Size = new System.Drawing.Size(193, 36);
+            this.reloadButton.Size = new System.Drawing.Size(158, 32);
             this.reloadButton.TabIndex = 3;
-            this.reloadButton.Text = "Reload devices";
+            this.reloadButton.Text = "Refresh";
             this.reloadButton.UseVisualStyleBackColor = true;
             this.reloadButton.MouseClick += new System.Windows.Forms.MouseEventHandler(this.reloadButton_MouseClick);
             // 
@@ -119,7 +97,7 @@
             this.statusLabel});
             this.statusStrip1.Location = new System.Drawing.Point(0, 384);
             this.statusStrip1.Name = "statusStrip1";
-            this.statusStrip1.Size = new System.Drawing.Size(616, 22);
+            this.statusStrip1.Size = new System.Drawing.Size(577, 22);
             this.statusStrip1.TabIndex = 4;
             this.statusStrip1.Text = "statusStrip1";
             // 
@@ -129,15 +107,26 @@
             this.statusLabel.Size = new System.Drawing.Size(39, 17);
             this.statusLabel.Text = "Ready";
             // 
+            // connectButton
+            // 
+            this.connectButton.Enabled = false;
+            this.connectButton.FlatStyle = System.Windows.Forms.FlatStyle.System;
+            this.connectButton.Location = new System.Drawing.Point(407, 50);
+            this.connectButton.Name = "connectButton";
+            this.connectButton.Size = new System.Drawing.Size(158, 32);
+            this.connectButton.TabIndex = 5;
+            this.connectButton.Text = "Connect";
+            this.connectButton.UseVisualStyleBackColor = true;
+            this.connectButton.Click += new System.EventHandler(this.connectButton_Click);
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(616, 406);
+            this.ClientSize = new System.Drawing.Size(577, 406);
+            this.Controls.Add(this.connectButton);
             this.Controls.Add(this.statusStrip1);
             this.Controls.Add(this.reloadButton);
-            this.Controls.Add(this.label1);
-            this.Controls.Add(this.refreshIntervalEditBox);
             this.Controls.Add(this.devicesListView);
             this.Name = "MainForm";
             this.Text = "ZMK Split Battery Status";
@@ -153,12 +142,11 @@
 
         private System.Windows.Forms.ListView devicesListView;
         private System.Windows.Forms.NotifyIcon notifyIcon;
-        private System.Windows.Forms.TextBox refreshIntervalEditBox;
-        private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Button reloadButton;
         private System.Windows.Forms.ColumnHeader NameColumn;
         private System.Windows.Forms.ColumnHeader StatusColumn;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel statusLabel;
+        private System.Windows.Forms.Button connectButton;
     }
 }
