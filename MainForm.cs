@@ -196,16 +196,34 @@ namespace ZMKSplit
             connectButton.Enabled = true;
         }
 
-        private async static Task<int> ReadBatteryLevel(GattCharacteristic gc)
+        private async Task<int> ReadBatteryLevel(GattCharacteristic gc)
         {
-            var res = await gc.ReadValueAsync(BluetoothCacheMode.Uncached);
-            if (res == null)
-                return -1;
+            try
+            {
+                var res = await gc.ReadValueAsync(BluetoothCacheMode.Uncached);
+                if (res == null)
+                {
+                    statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, bleDevice!.Name, "ReadValueAsync returned null");
+                    return -1;
+                }
 
-            IBuffer buffer = res.Value;
-            byte[] data = new byte[buffer.Length];
-            DataReader.FromBuffer(buffer).ReadBytes(data);
-            return data[0] == 255 ? -1 : data[0];
+                if (res.Status != GattCommunicationStatus.Success)
+                {
+                    statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, bleDevice!.Name, "ReadValueAsync returned status " + res.Status.ToString());
+                    return -1;
+                }
+
+                IBuffer buffer = res.Value;
+                byte[] data = new byte[buffer.Length];
+                DataReader.FromBuffer(buffer).ReadBytes(data);
+                return data[0] == 255 ? -1 : data[0];
+            }
+            catch (Exception e)
+            {
+                // throw further and let the caller handle it
+                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, bleDevice!.Name, e.Message);
+                return -1;
+            }
         }
         
         private async void ReadBatteryLevels()
@@ -275,7 +293,7 @@ namespace ZMKSplit
 
         public void UpdateTrayIcon()
         {
-            if (bleDevice == null)
+            if (bleDevice == null || bleDevice.BatteryLevels.Count == 0)
             {
                 notifyIcon.Icon = GetBatteryIcon(-1);
                 notifyIcon.Text = "Not connected";
