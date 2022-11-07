@@ -21,7 +21,7 @@ using Windows.Storage.Streams;
 // TODO:
 //  - not connected icon
 //  - statuses
-//  -
+//  - state machine? once device list enum is completed check if we're connecting/connected before setting "ready" etc
 //
 
 namespace ZMKSplit
@@ -38,6 +38,9 @@ namespace ZMKSplit
         public static readonly String DEVICE_TYPE_GENERIC = "Generic BLE device";
 
         public static readonly String STATUS_LOADING_DEVICE_LIST = "Fetching BLE devices..";
+        public static readonly String STATUS_CONNECTING = "Connecting to '{0}'..";
+        public static readonly String STATUS_CONNECTION_FAILED = "Could not connected to '{0}': {1}";
+        public static readonly String STATUS_CONNECTED = "Connected to {0} '{1}'";
         public static readonly String STATUS_READY = "Ready";
 
         private class BLEDevice
@@ -78,6 +81,7 @@ namespace ZMKSplit
         {
             reloadButton.Enabled = false;
             statusLabel.Text = STATUS_LOADING_DEVICE_LIST;
+            devicesListView.Items.Clear();
 
             string aqsFilter = "(System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\")";
             string[] bleAdditionalProperties = { "System.Devices.Aep.DeviceAddress", "System.Devices.Aep.Bluetooth.Le.IsConnectable", };
@@ -85,19 +89,12 @@ namespace ZMKSplit
             DeviceWatcher watcher = DeviceInformation.CreateWatcher(aqsFilter, bleAdditionalProperties, DeviceInformationKind.AssociationEndpoint);
             watcher.Added += (DeviceWatcher deviceWatcher, DeviceInformation di) =>
             {
-                if (!String.IsNullOrWhiteSpace(di.Name))
+                if (di.Pairing.IsPaired && !String.IsNullOrWhiteSpace(di.Name))
                 {
                     BeginInvoke(new Action(() =>
                     {
                         devicesListView.BeginUpdate();
-
-                        ListViewItem listViewItem = new ListViewItem { Text = di.Name };
-                        listViewItem.SubItems.Add(di.Pairing.IsPaired ? "Paired " : "Not paired");
-                        listViewItem.SubItems.Add(di.Id);
-                        listViewItem.Tag = di;
-
-                        devicesListView.Items.Add(listViewItem);
-
+                        devicesListView.Items.Add(new ListViewItem { Text = di.Name, Tag = di });
                         devicesListView.EndUpdate();
                     }));
                 }
@@ -127,16 +124,21 @@ namespace ZMKSplit
 
             DeviceInformation di = (DeviceInformation)devicesListView.SelectedItems[0].Tag;
 
+            statusLabel.Text = String.Format(STATUS_CONNECTING, di.Name);
+            connectButton.Enabled = false;
+
             var dev = await BluetoothLEDevice.FromIdAsync(di.Id);
             if (dev == null)
             {
-                // set error in status
+                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, di.Name, "Device not found");
+                connectButton.Enabled = true;
                 return;
             }
             var gattServices = await dev.GetGattServicesForUuidAsync(BATTERY_UUID, BluetoothCacheMode.Uncached).AsTask();
             if (gattServices == null)
             {
-                // set error in status
+                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, di.Name, "Battery service not found");
+                connectButton.Enabled = true;
                 return;
             }
 
@@ -145,7 +147,7 @@ namespace ZMKSplit
             {
                 var gattService = gattServices.Services[i];
                 var gattCharacteristics = await gattService.GetCharacteristicsForUuidAsync(BATTERY_LEVEL_UUID, BluetoothCacheMode.Uncached);
-                gattCharacteristicsResults.Append(gattCharacteristics);
+                gattCharacteristicsResults.Add(gattCharacteristics);
             }
 
             string deviceTypeString = DEVICE_TYPE_GENERIC;
@@ -178,12 +180,15 @@ namespace ZMKSplit
             if (selectedIndex != -1)
             {
                 bleDevice = new BLEDevice(di.Name, dev, gattServices.Services[selectedIndex], gattCharacteristicsResults[selectedIndex]!.Characteristics);
-                UpdateTrayIcon();
+                statusLabel.Text = String.Format(STATUS_CONNECTED, deviceTypeString, di.Name);
+                FetchBatteryLevels();
             }
             else
             {
-                // sett error in status
+                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, di.Name, "Could not find battery GATT characteristics. Is the device offline?");
             }
+
+            connectButton.Enabled = true;
         }
 
         private async static Task<int> ReadValueFromGattCharacteristics(GattCharacteristic gc)
@@ -198,9 +203,26 @@ namespace ZMKSplit
             return data[0] == 255 ? -1 : data[0];
         }
         
-        private int GetBatteryLevel()
+        private async void FetchBatteryLevels()
         {
-            return 46;
+            if (bleDevice == null)
+                return;
+
+            var bleDev = bleDevice;
+            List<int> batteryLevels = new List<int>();
+            foreach (var gc in bleDev.GattCharacteristics)
+            {
+                int batteryLevel = await ReadValueFromGattCharacteristics(gc);
+                if (batteryLevel != -1)
+                {
+                    batteryLevels.Add(batteryLevel);
+                }
+            }
+            if (bleDevice != null)
+            {
+                bleDevice.BatteryLevels = batteryLevels;
+                UpdateTrayIcon();
+            }
         }
 
         private void PreferenceChangedHandler(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
@@ -241,7 +263,7 @@ namespace ZMKSplit
 
         public void UpdateTrayIcon()
         {
-            notifyIcon.Icon = GetBatteryIcon(GetBatteryLevel());
+            notifyIcon.Icon = GetBatteryIcon(bleDevice != null ? bleDevice.MinBatteryLevel : -1);
             notifyIcon.Text = "Hello";
         }
 
@@ -252,7 +274,10 @@ namespace ZMKSplit
 
         private void devicesListView_DoubleClick(object sender, EventArgs e)
         {
-            ConnectToSelectedDevice();
+            if (connectButton.Enabled)
+            {
+                ConnectToSelectedDevice();
+            }
         }
 
         private void connectButton_Click(object sender, EventArgs e)

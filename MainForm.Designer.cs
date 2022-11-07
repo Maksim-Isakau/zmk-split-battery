@@ -31,7 +31,6 @@
             this.components = new System.ComponentModel.Container();
             this.devicesListView = new System.Windows.Forms.ListView();
             this.NameColumn = new System.Windows.Forms.ColumnHeader();
-            this.StatusColumn = new System.Windows.Forms.ColumnHeader();
             this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
             this.reloadButton = new System.Windows.Forms.Button();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
@@ -46,8 +45,7 @@
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.devicesListView.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.NameColumn,
-            this.StatusColumn});
+            this.NameColumn});
             this.devicesListView.FullRowSelect = true;
             this.devicesListView.GridLines = true;
             this.devicesListView.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
@@ -66,13 +64,7 @@
             // NameColumn
             // 
             this.NameColumn.Text = "Name";
-            this.NameColumn.Width = 300;
-            // 
-            // StatusColumn
-            // 
-            this.StatusColumn.Text = "Status";
-            this.StatusColumn.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.StatusColumn.Width = 78;
+            this.NameColumn.Width = 378;
             // 
             // notifyIcon
             // 
@@ -109,6 +101,7 @@
             // 
             // connectButton
             // 
+            this.connectButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.connectButton.Enabled = false;
             this.connectButton.FlatStyle = System.Windows.Forms.FlatStyle.System;
             this.connectButton.Location = new System.Drawing.Point(407, 50);
@@ -144,7 +137,6 @@
         private System.Windows.Forms.NotifyIcon notifyIcon;
         private System.Windows.Forms.Button reloadButton;
         private System.Windows.Forms.ColumnHeader NameColumn;
-        private System.Windows.Forms.ColumnHeader StatusColumn;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel statusLabel;
         private System.Windows.Forms.Button connectButton;
