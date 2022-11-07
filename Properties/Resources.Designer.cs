@@ -173,6 +173,16 @@ namespace ZMKSplit.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
+        internal static System.Drawing.Icon black_dsc {
+            get {
+                object obj = ResourceManager.GetObject("black-dsc", resourceCulture);
+                return ((System.Drawing.Icon)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
+        /// </summary>
         internal static System.Drawing.Icon white_000 {
             get {
                 object obj = ResourceManager.GetObject("white-000", resourceCulture);
@@ -276,6 +286,16 @@ namespace ZMKSplit.Properties {
         internal static System.Drawing.Icon white_100 {
             get {
                 object obj = ResourceManager.GetObject("white-100", resourceCulture);
+                return ((System.Drawing.Icon)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
+        /// </summary>
+        internal static System.Drawing.Icon white_dsc {
+            get {
+                object obj = ResourceManager.GetObject("white-dsc", resourceCulture);
                 return ((System.Drawing.Icon)(obj));
             }
         }

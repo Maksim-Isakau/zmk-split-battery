@@ -22,7 +22,6 @@ using Windows.Storage.Streams;
 //  - not connected icon
 //  - statuses
 //  - state machine? once device list enum is completed check if we're connecting/connected before setting "ready" etc
-//
 
 namespace ZMKSplit
 {
@@ -181,7 +180,7 @@ namespace ZMKSplit
             {
                 bleDevice = new BLEDevice(di.Name, dev, gattServices.Services[selectedIndex], gattCharacteristicsResults[selectedIndex]!.Characteristics);
                 statusLabel.Text = String.Format(STATUS_CONNECTED, deviceTypeString, di.Name);
-                FetchBatteryLevels();
+                ReadBatteryLevels();
             }
             else
             {
@@ -191,7 +190,7 @@ namespace ZMKSplit
             connectButton.Enabled = true;
         }
 
-        private async static Task<int> ReadValueFromGattCharacteristics(GattCharacteristic gc)
+        private async static Task<int> ReadBatteryLevel(GattCharacteristic gc)
         {
             var res = await gc.ReadValueAsync(BluetoothCacheMode.Uncached);
             if (res == null)
@@ -203,7 +202,7 @@ namespace ZMKSplit
             return data[0] == 255 ? -1 : data[0];
         }
         
-        private async void FetchBatteryLevels()
+        private async void ReadBatteryLevels()
         {
             if (bleDevice == null)
                 return;
@@ -212,7 +211,7 @@ namespace ZMKSplit
             List<int> batteryLevels = new List<int>();
             foreach (var gc in bleDev.GattCharacteristics)
             {
-                int batteryLevel = await ReadValueFromGattCharacteristics(gc);
+                int batteryLevel = await ReadBatteryLevel(gc);
                 if (batteryLevel != -1)
                 {
                     batteryLevels.Add(batteryLevel);
@@ -250,13 +249,20 @@ namespace ZMKSplit
 
         private Icon GetBatteryIcon(int pcnt)
         {
-            pcnt = ((int)Math.Round(pcnt / 10.0)) * 10;
             string iconName = "white-";
             if (IsWindowsThemeLight())
             {
                 iconName = "black-";
             }
-            iconName += pcnt.ToString("d3");
+            if (pcnt == -1)
+            {
+                iconName += "dsc";
+            }
+            else
+            {
+                pcnt = ((int)Math.Round(pcnt / 10.0)) * 10;
+                iconName += pcnt.ToString("d3");
+            }
             object obj = ZMKSplit.Properties.Resources.ResourceManager.GetObject(iconName, ZMKSplit.Properties.Resources.Culture)!;
             return ((Icon)(obj));
         }
