@@ -14,9 +14,15 @@ using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Devices.Enumeration;
 using System.Collections.Generic;
 using System.Linq;
-using InTheHand.Bluetooth;
+using Windows.Storage.Streams;
 
-//https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getlastinputinfo
+// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getlastinputinfo
+// 
+// TODO:
+//  - not connected icon
+//  - statuses
+//  -
+//
 
 namespace ZMKSplit
 {
@@ -24,18 +30,48 @@ namespace ZMKSplit
     {
         public static readonly Guid BATTERY_UUID = Guid.Parse("{0000180F-0000-1000-8000-00805F9B34FB}");
         public static readonly Guid BATTERY_LEVEL_UUID = Guid.Parse("{00002A19-0000-1000-8000-00805F9B34FB}");
+
+        public static readonly String ZMK_CENTRAL_HALF_NAME = "Central";
+        public static readonly String ZMK_PERIPHERAL_HALF_NAME = "Peripheral";
+
+        public static readonly String DEVICE_TYPE_ZMK = "ZMK Split Keyboard";
+        public static readonly String DEVICE_TYPE_GENERIC = "Generic BLE device";
+
         public static readonly String STATUS_LOADING_DEVICE_LIST = "Fetching BLE devices..";
         public static readonly String STATUS_READY = "Ready";
 
         private class BLEDevice
         {
+            private List<int> _batteryLevels;
+
             public string Name { get; set; }
             public BluetoothLEDevice Device { get; set; }
             public GattDeviceService GattService { get; set; }
-            public List<GattCharacteristic> GattCharacteristics { get; set; }
+            public IReadOnlyList<GattCharacteristic> GattCharacteristics { get; set; }
+            public List<int> BatteryLevels
+            {
+                get
+                {
+                    return _batteryLevels;
+                }
+                set
+                {
+                    _batteryLevels = value;
+                }
+            }
+            public int MinBatteryLevel { get; }
+
+            public BLEDevice(string name, BluetoothLEDevice dev, GattDeviceService gattSrv, IReadOnlyList<GattCharacteristic> gattChrs)
+            {
+                Name = name;
+                Device = dev;
+                GattService = gattSrv;
+                GattCharacteristics = gattChrs;
+                MinBatteryLevel = -1;
+            }
         };
 
-        private BLEDevice? _bleDevice;
+        private BLEDevice? bleDevice;
 
         public MainForm()
         {
@@ -44,7 +80,7 @@ namespace ZMKSplit
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            SetSVGIcon();
+            UpdateTrayIcon();
             Microsoft.Win32.SystemEvents.UserPreferenceChanged += new Microsoft.Win32.UserPreferenceChangedEventHandler(PreferenceChangedHandler);
 
             ListBLE();
@@ -99,46 +135,84 @@ namespace ZMKSplit
             if (devicesListView.SelectedItems.Count == 0)
                 return;
 
+            bleDevice = null;
+
             DeviceInformation di = (DeviceInformation)devicesListView.SelectedItems[0].Tag;
 
             var dev = await BluetoothLEDevice.FromIdAsync(di.Id);
             if (dev == null)
             {
-                //
+                // set error in status
                 return;
             }
             var gattServices = await dev.GetGattServicesForUuidAsync(BATTERY_UUID, BluetoothCacheMode.Uncached).AsTask();
             if (gattServices == null)
             {
-                //
+                // set error in status
                 return;
             }
 
-            List<GattCharacteristicsResult?> results = new List<GattCharacteristicsResult?>();
+            List<GattCharacteristicsResult?> gattCharacteristicsResults = new List<GattCharacteristicsResult?>();
             for (int i = 0; i < gattServices.Services.Count; i++)
             {
                 var gattService = gattServices.Services[i];
                 var gattCharacteristics = await gattService.GetCharacteristicsForUuidAsync(BATTERY_LEVEL_UUID, BluetoothCacheMode.Uncached);
-                results.Append(gattCharacteristics);
+                gattCharacteristicsResults.Append(gattCharacteristics);
             }
 
-            if (gattCharacteristics.Characteristics.Count != 0)
+            string deviceTypeString = DEVICE_TYPE_GENERIC;
+
+            // first search for ZMK Split, it has two parts named "Central" and "Peripheral"
+            var selectedIndex = gattCharacteristicsResults.FindIndex(c =>
             {
-                _bleDevice.device = dev;
-                _bleDevice.gattService = gattService;
-                _bleDevice.gattCharacteristics = gattCharacteristics;
-                selectGattCharacteristic = gattCharacteristicsTask.Result.Characteristics[0];
-                selectGattCharacteristic2 = gattCharacteristicsTask.Result.Characteristics[1];
-                var descr1 = selectGattCharacteristic.UserDescription;
-                var descr2 = selectGattCharacteristic2.UserDescription;
-                var cnt = gattCharacteristicsTask.Result.Characteristics.Count;
-                form.Notify("BLE Device ID:" + selectedBLEDev.DeviceId);
-                form.StartUpdate();
-                return;
+                return
+                    c != null && c.Characteristics.Count == 2 &&
+                    c.Characteristics[0].UserDescription == ZMK_CENTRAL_HALF_NAME &&
+                    c.Characteristics[1].UserDescription == ZMK_PERIPHERAL_HALF_NAME;
+            });
+
+            // generic BLE device with two batteries?
+            if (selectedIndex == -1)
+            {
+                selectedIndex = gattCharacteristicsResults.FindIndex(c => c != null && c.Characteristics.Count == 2);
+            }
+            else
+            {
+                deviceTypeString = DEVICE_TYPE_ZMK;
             }
 
-            notifyIcon.Icon = GetBattIcon(GetBattLevel());
-            notifyIcon.Text = "Hello";
+            // generic BLE device with one battery?
+            if (selectedIndex == -1)
+            {
+                selectedIndex = gattCharacteristicsResults.FindIndex(c => c != null && c.Characteristics.Count == 1);
+            }
+
+            if (selectedIndex != -1)
+            {
+                bleDevice = new BLEDevice(di.Name, dev, gattServices.Services[i], gattCharacteristicsResults[selectedIndex]!.Characteristics);
+                UpdateTrayIcon();
+            }
+            else
+            {
+                // sett error in status
+            }
+        }
+
+        private async static Task<int> ReadValueFromGattCharacteristics(GattCharacteristic gc)
+        {
+            var res = await gc.ReadValueAsync(BluetoothCacheMode.Uncached);
+            if (res == null)
+                return -1;
+
+            IBuffer buffer = res.Value;
+            byte[] data = new byte[buffer.Length];
+            DataReader.FromBuffer(buffer).ReadBytes(data);
+            return data[0] == 255 ? -1 : data[0];
+        }
+        
+        private int GetBatteryLevel()
+        {
+            return 46;
         }
 
         private void PreferenceChangedHandler(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
@@ -146,7 +220,7 @@ namespace ZMKSplit
             if (e.Category == UserPreferenceCategory.General)
             {
                 // Reload icon if Color Theme has been changed
-                SetSVGIcon();
+                UpdateTrayIcon();
             }
         }
 
@@ -164,12 +238,7 @@ namespace ZMKSplit
             return true;
         }
 
-        private int GetBattLevel()
-        {
-            return 46;
-        }
-
-        private Icon GetBattIcon(int pcnt)
+        private Icon GetBatteryIcon(int pcnt)
         {
             pcnt = ((int)Math.Round(pcnt / 10.0)) * 10;
             string iconName = "white-";
@@ -178,13 +247,12 @@ namespace ZMKSplit
                 iconName = "black-";
             }
             iconName += pcnt.ToString("d3");
-            object obj = ZMKSplit.Properties.Resources.ResourceManager.GetObject(iconName, ZMKSplit.Properties.Resources.Culture)!;
             return ((Icon)(obj));
         }
 
-        public void SetSVGIcon()
+        public void UpdateTrayIcon()
         {
-            notifyIcon.Icon = GetBattIcon(GetBattLevel());
+            notifyIcon.Icon = GetBatteryIcon(GetBatteryLevel());
             notifyIcon.Text = "Hello";
         }
 
