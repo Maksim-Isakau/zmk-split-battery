@@ -9,12 +9,11 @@ using System.Security.Cryptography.Xml;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Windows.Forms;
-using Windows.Devices.Bluetooth;
-using Windows.Devices.Bluetooth.GenericAttributeProfile;
-using Windows.Devices.Enumeration;
 using System.Collections.Generic;
 using System.Linq;
 using Windows.Storage.Streams;
+using System.Diagnostics;
+using static ZMKSplit.BatteryMonitor;
 
 // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getlastinputinfo
 // 
@@ -27,225 +26,102 @@ namespace ZMKSplit
 {
     public partial class MainForm : Form
     {
-        public static readonly Guid BATTERY_UUID = Guid.Parse("{0000180F-0000-1000-8000-00805F9B34FB}");
-        public static readonly Guid BATTERY_LEVEL_UUID = Guid.Parse("{00002A19-0000-1000-8000-00805F9B34FB}");
-
-        public static readonly String ZMK_CENTRAL_HALF_NAME = "Central";
-        public static readonly String ZMK_PERIPHERAL_HALF_NAME = "Peripheral";
-
         public static readonly String DEVICE_TYPE_ZMK = "ZMK Split Keyboard";
         public static readonly String DEVICE_TYPE_GENERIC = "Generic BLE device";
 
-        public static readonly String STATUS_LOADING_DEVICE_LIST = "Fetching BLE devices..";
+        public static readonly String RELOAD_BUTTON_STATE_RELOADING = "Looking for devices..";
+        public static readonly String RELOAD_BUTTON_STATE_READY = "Reload Devices";
+        
         public static readonly String STATUS_CONNECTING = "Connecting to '{0}'..";
         public static readonly String STATUS_CONNECTION_FAILED = "Could not connected to '{0}': {1}";
         public static readonly String STATUS_CONNECTED = "Connected to {0} '{1}'";
         public static readonly String STATUS_READY = "Ready";
+        public static readonly String STATUS_READ_BATTERY_LEVEL_FAILED = "Could not read battery level: {0}";
 
-        private class BLEDevice
-        {
-            public string Name { get; set; }
-            public BluetoothLEDevice Device { get; set; }
-            public GattDeviceService GattService { get; set; }
-            public IReadOnlyList<GattCharacteristic> GattCharacteristics { get; set; }
-            public List<int> BatteryLevels { get; set; }
-            public int MinBatteryLevel { get => BatteryLevels.Min(); }
-            
-            public BLEDevice(string name, BluetoothLEDevice dev, GattDeviceService gattSrv, IReadOnlyList<GattCharacteristic> gattChrs)
-            {
-                Name = name;
-                Device = dev;
-                GattService = gattSrv;
-                GattCharacteristics = gattChrs;
-                BatteryLevels = new List<int>();
-            }
-        };
-
-        private BLEDevice? bleDevice;
+        private BatteryMonitor _batteryMonitor;
+        private string _deviceName;
+        private string _deviceID;
+        private string _deviceType;
 
         public MainForm()
         {
+            _batteryMonitor = new BatteryMonitor();
+            _deviceName = "";
+            _deviceID = "";
+            _deviceType = "";
             InitializeComponent();
         }
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            UpdateTrayIcon();
+            UpdateTrayIcon(false, new List<(string, int)>());
             Microsoft.Win32.SystemEvents.UserPreferenceChanged += new Microsoft.Win32.UserPreferenceChangedEventHandler(PreferenceChangedHandler);
 
-            ListBLE();
+            ListBLEDevices();
         }
 
-        private void ListBLE()
+        private void ListBLEDevices()
         {
             reloadButton.Enabled = false;
-            statusLabel.Text = STATUS_LOADING_DEVICE_LIST;
-            devicesListView.Items.Clear();
-
-            string aqsFilter = "(System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\")";
-            string[] bleAdditionalProperties =
-            {
-                "System.Devices.Aep.DeviceAddress",
-                "System.Devices.Aep.Bluetooth.Le.IsConnectable",
-            };
-            
-            DeviceWatcher watcher = DeviceInformation.CreateWatcher(aqsFilter, bleAdditionalProperties, DeviceInformationKind.AssociationEndpoint);
-            watcher.Added += (DeviceWatcher deviceWatcher, DeviceInformation di) =>
-            {
-                if (di.Pairing.IsPaired && !String.IsNullOrWhiteSpace(di.Name))
-                {
-                    BeginInvoke(new Action(() =>
-                    {
-                        devicesListView.BeginUpdate();
-                        devicesListView.Items.Add(new ListViewItem { Text = di.Name, Tag = di });
-                        devicesListView.EndUpdate();
-                    }));
-                }
-            };
-            watcher.Updated += (_, __) => { };
-            watcher.EnumerationCompleted += (DeviceWatcher deviceWatcher, object arg) =>
-            {
-                deviceWatcher.Stop();
-            };
-            watcher.Stopped += (DeviceWatcher deviceWatcher, object arg) =>
+            reloadButton.Text = RELOAD_BUTTON_STATE_RELOADING;
+            BatteryMonitor.ListPairedDevices((string deviceName, string deviceID) =>
             {
                 BeginInvoke(new Action(() =>
                 {
-                    statusLabel.Text = STATUS_READY;
-                    reloadButton.Enabled = true;
+                    devicesListView.BeginUpdate();
+                    devicesListView.Items.Add(new ListViewItem { Text = deviceName, Tag = deviceID });
+                    devicesListView.EndUpdate();
                 }));
-            };
-            watcher.Start();
+            }, () =>
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    reloadButton.Enabled = true;
+                    reloadButton.Text = RELOAD_BUTTON_STATE_READY;
+                }));
+            });
         }
 
         private async void ConnectToSelectedDevice()
         {
             if (devicesListView.SelectedItems.Count == 0)
                 return;
-
-            bleDevice = null;
+            
+            string deviceName = devicesListView.SelectedItems[0].Text;
+            string deviceID = (string)devicesListView.SelectedItems[0].Tag;
+            
             readBatteryLevelsTimer.Enabled = false;
-
-            DeviceInformation di = (DeviceInformation)devicesListView.SelectedItems[0].Tag;
-
-            statusLabel.Text = String.Format(STATUS_CONNECTING, di.Name);
+            statusLabel.Text = String.Format(STATUS_CONNECTING, deviceName);
             connectButton.Enabled = false;
 
-            var dev = await BluetoothLEDevice.FromIdAsync(di.Id);
-            if (dev == null)
+            var res = await _batteryMonitor.Connect(deviceName, deviceID);
+
+            if (res.Status == BatteryMonitor.ConnectStatus.DeviceNotFound)
             {
-                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, di.Name, "Device not found");
-                connectButton.Enabled = true;
-                return;
+                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Device not found");
             }
-            var gattServices = await dev.GetGattServicesForUuidAsync(BATTERY_UUID, BluetoothCacheMode.Uncached).AsTask();
-            if (gattServices == null)
+            else if (res.Status == BatteryMonitor.ConnectStatus.BatteryServiceNotFound)
             {
-                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, di.Name, "Battery service not found");
-                connectButton.Enabled = true;
-                return;
+                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Battery service not found");
             }
-
-            List<GattCharacteristicsResult?> gattCharacteristicsResults = new List<GattCharacteristicsResult?>();
-            for (int i = 0; i < gattServices.Services.Count; i++)
+            else if (res.Status == BatteryMonitor.ConnectStatus.BatteryLevelCharacteristicNotFound)
             {
-                var gattService = gattServices.Services[i];
-                var gattCharacteristics = await gattService.GetCharacteristicsForUuidAsync(BATTERY_LEVEL_UUID, BluetoothCacheMode.Uncached);
-                gattCharacteristicsResults.Add(gattCharacteristics);
-            }
-
-            string deviceTypeString = DEVICE_TYPE_GENERIC;
-
-            // first search for ZMK Split, it has two parts named "Central" and "Peripheral"
-            var selectedIndex = gattCharacteristicsResults.FindIndex(c =>
-            {
-                return
-                    c != null && c.Characteristics.Count == 2 &&
-                    c.Characteristics[0].UserDescription == ZMK_CENTRAL_HALF_NAME &&
-                    c.Characteristics[1].UserDescription == ZMK_PERIPHERAL_HALF_NAME;
-            });
-
-            // generic BLE device with two batteries?
-            if (selectedIndex == -1)
-            {
-                selectedIndex = gattCharacteristicsResults.FindIndex(c => c != null && c.Characteristics.Count == 2);
+                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Could not find battery level GATT characteristic. Is the device offline?");
             }
             else
             {
-                deviceTypeString = DEVICE_TYPE_ZMK;
-            }
-
-            // generic BLE device with one battery?
-            if (selectedIndex == -1)
-            {
-                selectedIndex = gattCharacteristicsResults.FindIndex(c => c != null && c.Characteristics.Count == 1);
-            }
-
-            if (selectedIndex != -1)
-            {
-                bleDevice = new BLEDevice(di.Name, dev, gattServices.Services[selectedIndex], gattCharacteristicsResults[selectedIndex]!.Characteristics);
-                statusLabel.Text = String.Format(STATUS_CONNECTED, deviceTypeString, di.Name);
-                ReadBatteryLevels();
-                readBatteryLevelsTimer.Enabled = true;
-            }
-            else
-            {
-                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, di.Name, "Could not find battery GATT characteristics. Is the device offline?");
+                Debug.Assert(res.Status == BatteryMonitor.ConnectStatus.Connected, "Unknown BatteryMonitor.ConnectStatus");
+                if (res.Status == BatteryMonitor.ConnectStatus.Connected)
+                {
+                    _deviceName = deviceName;
+                    _deviceID = deviceID;
+                    _deviceType = res.Type == BatteryMonitor.DeviceType.ZMK ? DEVICE_TYPE_ZMK : DEVICE_TYPE_GENERIC;
+                    statusLabel.Text = String.Format(STATUS_CONNECTED, _deviceType, _deviceName);
+                    readBatteryLevelsTimer.Enabled = true;
+                }
             }
 
             connectButton.Enabled = true;
-        }
-
-        private async Task<int> ReadBatteryLevel(GattCharacteristic gc)
-        {
-            try
-            {
-                var res = await gc.ReadValueAsync(BluetoothCacheMode.Uncached);
-                if (res == null)
-                {
-                    statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, bleDevice!.Name, "ReadValueAsync returned null");
-                    return -1;
-                }
-
-                if (res.Status != GattCommunicationStatus.Success)
-                {
-                    statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, bleDevice!.Name, "ReadValueAsync returned status " + res.Status.ToString());
-                    return -1;
-                }
-
-                IBuffer buffer = res.Value;
-                byte[] data = new byte[buffer.Length];
-                DataReader.FromBuffer(buffer).ReadBytes(data);
-                return data[0] == 255 ? -1 : data[0];
-            }
-            catch (Exception e)
-            {
-                // throw further and let the caller handle it
-                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, bleDevice!.Name, e.Message);
-                return -1;
-            }
-        }
-        
-        private async void ReadBatteryLevels()
-        {
-            if (bleDevice == null)
-                return;
-
-            var bleDev = bleDevice;
-            List<int> batteryLevels = new List<int>();
-            foreach (var gc in bleDev.GattCharacteristics)
-            {
-                int batteryLevel = await ReadBatteryLevel(gc);
-                if (batteryLevel != -1)
-                {
-                    batteryLevels.Add(batteryLevel);
-                }
-            }
-            if (bleDevice != null)
-            {
-                bleDevice.BatteryLevels = batteryLevels;
-                UpdateTrayIcon();
-            }
         }
 
         private void PreferenceChangedHandler(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
@@ -253,7 +129,7 @@ namespace ZMKSplit
             if (e.Category == UserPreferenceCategory.General)
             {
                 // Reload icon if Color Theme has been changed
-                UpdateTrayIcon();
+                readBatteryLevelsTimer_Tick(sender, e);
             }
         }
 
@@ -290,26 +166,29 @@ namespace ZMKSplit
             object obj = ZMKSplit.Properties.Resources.ResourceManager.GetObject(iconName, ZMKSplit.Properties.Resources.Culture)!;
             return ((Icon)(obj));
         }
-
-        public void UpdateTrayIcon()
+        
+        public void UpdateTrayIcon(bool connected, List<(string, int)> batteryLevels)
         {
-            if (bleDevice == null || bleDevice.BatteryLevels.Count == 0)
+            if (!connected || batteryLevels.Count == 0)
             {
                 notifyIcon.Icon = GetBatteryIcon(-1);
                 notifyIcon.Text = "Not connected";
                 return;
             }
-            notifyIcon.Icon = GetBatteryIcon(bleDevice!.MinBatteryLevel);
-            notifyIcon.Text = bleDevice!.Name + "\n";
-            for (int i = 0; i < bleDevice.BatteryLevels.Count; i++)
+            else
             {
-                notifyIcon.Text += "\n" + bleDevice.GattCharacteristics[i].UserDescription + ": " + bleDevice.BatteryLevels[i] + "%";
+                notifyIcon.Icon = GetBatteryIcon(batteryLevels.Min<(string, int), int>(x => x.Item2));
+                notifyIcon.Text = _deviceName + "\n";
+                for (int i = 0; i < batteryLevels.Count; i++)
+                {
+                    notifyIcon.Text += "\n" + batteryLevels[i].Item1 + ": " + batteryLevels[i].Item2 + "%";
+                }
             }
         }
 
         private void reloadButton_MouseClick(object sender, MouseEventArgs e)
         {
-            ListBLE();
+            ListBLEDevices();
         }
 
         private void devicesListView_DoubleClick(object sender, EventArgs e)
@@ -337,9 +216,26 @@ namespace ZMKSplit
             }
         }
 
-        private void readBatteryLevelsTimer_Tick(object sender, EventArgs e)
+        private async void readBatteryLevelsTimer_Tick(object sender, EventArgs e)
         {
-            ReadBatteryLevels();
+            var res = await _batteryMonitor.ReadBatteryLevels();
+            if (res.Status == BatteryMonitor.ReadStatus.Failure)
+            {
+                statusLabel.Text = String.Format(STATUS_READ_BATTERY_LEVEL_FAILED, res.ErrorMessage);
+            }
+            else if (res.Status == BatteryMonitor.ReadStatus.Success)
+            {
+                statusLabel.Text = String.Format(STATUS_CONNECTED, _deviceType, _deviceName);
+            }
+            else if (res.Status == BatteryMonitor.ReadStatus.NotConnected)
+            {
+                statusLabel.Text = String.Format(STATUS_READY);
+            }
+            else
+            {
+                Debug.Assert(res.Status == BatteryMonitor.ReadStatus.Success, "Unknown BatteryMonitor.ReadStatus");
+            }
+            UpdateTrayIcon(_batteryMonitor.IsConnected(), res.BatteryLevels);
         }
     }
 }
