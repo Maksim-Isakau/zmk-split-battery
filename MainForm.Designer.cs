@@ -36,7 +36,6 @@
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.statusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.connectButton = new System.Windows.Forms.Button();
-            this.readBatteryLevelsTimer = new System.Windows.Forms.Timer(this.components);
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -59,7 +58,6 @@
             this.devicesListView.TabIndex = 0;
             this.devicesListView.UseCompatibleStateImageBehavior = false;
             this.devicesListView.View = System.Windows.Forms.View.Details;
-            this.devicesListView.ItemSelectionChanged += new System.Windows.Forms.ListViewItemSelectionChangedEventHandler(this.devicesListView_ItemSelectionChanged);
             this.devicesListView.DoubleClick += new System.EventHandler(this.devicesListView_DoubleClick);
             // 
             // NameColumn
@@ -102,7 +100,6 @@
             // connectButton
             // 
             this.connectButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.connectButton.Enabled = false;
             this.connectButton.FlatStyle = System.Windows.Forms.FlatStyle.System;
             this.connectButton.Location = new System.Drawing.Point(407, 50);
             this.connectButton.Name = "connectButton";
@@ -111,11 +108,6 @@
             this.connectButton.Text = "Connect";
             this.connectButton.UseVisualStyleBackColor = true;
             this.connectButton.Click += new System.EventHandler(this.connectButton_Click);
-            // 
-            // readBatteryLevelsTimer
-            // 
-            this.readBatteryLevelsTimer.Interval = 1000;
-            this.readBatteryLevelsTimer.Tick += new System.EventHandler(this.readBatteryLevelsTimer_Tick);
             // 
             // MainForm
             // 
@@ -145,6 +137,5 @@
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel statusLabel;
         private System.Windows.Forms.Button connectButton;
-        private System.Windows.Forms.Timer readBatteryLevelsTimer;
     }
 }

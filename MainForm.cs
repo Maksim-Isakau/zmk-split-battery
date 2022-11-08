@@ -15,48 +15,40 @@ using Windows.Storage.Streams;
 using System.Diagnostics;
 using static ZMKSplit.BatteryMonitor;
 
-// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getlastinputinfo
-// 
-// TODO:
-//  - statuses
-//  - state machine? once device list enum is completed check if we're connecting/connected before setting "ready" etc
-//  - correctly abort awaits, crash on exit after ReadBatteryLevels->UpdateTrayIcon
-
 namespace ZMKSplit
 {
     public partial class MainForm : Form
     {
-        public static readonly String DEVICE_TYPE_ZMK = "ZMK Split Keyboard";
-        public static readonly String DEVICE_TYPE_GENERIC = "Generic BLE device";
-
         public static readonly String RELOAD_BUTTON_STATE_RELOADING = "Looking for devices..";
         public static readonly String RELOAD_BUTTON_STATE_READY = "Reload Devices";
-        
+
+        public static readonly String CONNECT_BUTTON_CONNECT = "Connect";
+        public static readonly String CONNECT_BUTTON_DISCONNECT = "Disconnect";
+
         public static readonly String STATUS_CONNECTING = "Connecting to '{0}'..";
         public static readonly String STATUS_CONNECTION_FAILED = "Could not connected to '{0}': {1}";
-        public static readonly String STATUS_CONNECTED = "Connected to {0} '{1}'";
+        public static readonly String STATUS_CONNECTED = "Connected to {0}";
         public static readonly String STATUS_READY = "Ready";
         public static readonly String STATUS_READ_BATTERY_LEVEL_FAILED = "Could not read battery level: {0}";
 
         private BatteryMonitor _batteryMonitor;
         private string _deviceName;
         private string _deviceID;
-        private string _deviceType;
 
         public MainForm()
         {
-            _batteryMonitor = new BatteryMonitor();
+            _batteryMonitor = new BatteryMonitor(OnBatteryLevelChanged);
             _deviceName = "";
             _deviceID = "";
-            _deviceType = "";
             InitializeComponent();
         }
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            UpdateTrayIcon(false, new List<(string, int)>());
+            UpdateTrayIcon();
             Microsoft.Win32.SystemEvents.UserPreferenceChanged += new Microsoft.Win32.UserPreferenceChangedEventHandler(PreferenceChangedHandler);
-
+            statusLabel.Text = STATUS_READY;
+            connectButton.Text = CONNECT_BUTTON_CONNECT;
             ListBLEDevices();
         }
 
@@ -82,17 +74,21 @@ namespace ZMKSplit
             });
         }
 
-        private async void ConnectToSelectedDevice()
+        public void OnBatteryLevelChanged()
+        {
+            BeginInvoke(new Action(() => UpdateTrayIcon()));
+        }
+
+        private async Task<bool> ConnectToSelectedDevice()
         {
             if (devicesListView.SelectedItems.Count == 0)
-                return;
+                return false;
             
             string deviceName = devicesListView.SelectedItems[0].Text;
             string deviceID = (string)devicesListView.SelectedItems[0].Tag;
             
-            readBatteryLevelsTimer.Enabled = false;
             statusLabel.Text = String.Format(STATUS_CONNECTING, deviceName);
-            connectButton.Enabled = false;
+            
 
             var res = await _batteryMonitor.Connect(deviceName, deviceID);
 
@@ -108,6 +104,10 @@ namespace ZMKSplit
             {
                 statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Could not find battery level GATT characteristic. Is the device offline?");
             }
+            else if (res.Status == BatteryMonitor.ConnectStatus.SubscribtionFailure)
+            {
+                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Could not subscribe to battery level notifications");
+            }
             else
             {
                 Debug.Assert(res.Status == BatteryMonitor.ConnectStatus.Connected, "Unknown BatteryMonitor.ConnectStatus");
@@ -115,13 +115,21 @@ namespace ZMKSplit
                 {
                     _deviceName = deviceName;
                     _deviceID = deviceID;
-                    _deviceType = res.Type == BatteryMonitor.DeviceType.ZMK ? DEVICE_TYPE_ZMK : DEVICE_TYPE_GENERIC;
-                    statusLabel.Text = String.Format(STATUS_CONNECTED, _deviceType, _deviceName);
-                    readBatteryLevelsTimer.Enabled = true;
+                    statusLabel.Text = String.Format(STATUS_CONNECTED, _deviceName);
+                    UpdateTrayIcon();
                 }
             }
+            
+            return res.Status == ConnectStatus.Connected;
+        }
 
-            connectButton.Enabled = true;
+        private void DisconnectFromSelectedDevice()
+        {
+            _batteryMonitor.Disconnect();
+            _deviceName = "";
+            _deviceID = "";
+            statusLabel.Text = STATUS_READY;
+            UpdateTrayIcon();
         }
 
         private void PreferenceChangedHandler(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
@@ -129,7 +137,7 @@ namespace ZMKSplit
             if (e.Category == UserPreferenceCategory.General)
             {
                 // Reload icon if Color Theme has been changed
-                readBatteryLevelsTimer_Tick(sender, e);
+                UpdateTrayIcon();
             }
         }
 
@@ -167,22 +175,23 @@ namespace ZMKSplit
             return ((Icon)(obj));
         }
         
-        public void UpdateTrayIcon(bool connected, List<(string, int)> batteryLevels)
+        public void UpdateTrayIcon()
         {
-            if (!connected || batteryLevels.Count == 0)
+            if (!_batteryMonitor.IsConnected() || _batteryMonitor.Batteries.Count == 0)
             {
                 notifyIcon.Icon = GetBatteryIcon(-1);
                 notifyIcon.Text = "Not connected";
-                return;
             }
             else
             {
-                notifyIcon.Icon = GetBatteryIcon(batteryLevels.Min<(string, int), int>(x => x.Item2));
+                int minLevel = 100;
                 notifyIcon.Text = _deviceName + "\n";
-                for (int i = 0; i < batteryLevels.Count; i++)
+                foreach (var battery in _batteryMonitor.Batteries.Values)
                 {
-                    notifyIcon.Text += "\n" + batteryLevels[i].Item1 + ": " + batteryLevels[i].Item2 + "%";
+                    notifyIcon.Text += battery.Name + ": " + battery.Level + "%\n";
+                    minLevel = Math.Min(minLevel, battery.Level);
                 }
+                notifyIcon.Icon = GetBatteryIcon(minLevel);
             }
         }
 
@@ -193,49 +202,29 @@ namespace ZMKSplit
 
         private void devicesListView_DoubleClick(object sender, EventArgs e)
         {
-            if (connectButton.Enabled)
+            if (connectButton.Enabled && !_batteryMonitor.IsConnected())
             {
-                ConnectToSelectedDevice();
+                connectButton_Click(sender, e);
             }
         }
-
-        private void connectButton_Click(object sender, EventArgs e)
+        
+        private async void connectButton_Click(object sender, EventArgs e)
         {
-            ConnectToSelectedDevice();
-        }
-
-        private void devicesListView_ItemSelectionChanged(object sender, ListViewItemSelectionChangedEventArgs e)
-        {
-            if (devicesListView.SelectedItems.Count != 0)
+            connectButton.Enabled = false;
+            if (_batteryMonitor.IsConnected())
             {
-                connectButton.Enabled = true;
+                DisconnectFromSelectedDevice();
+                connectButton.Text = "Connect";
             }
             else
             {
-                connectButton.Enabled = false;
+                var res = await ConnectToSelectedDevice();
+                if (res)
+                {
+                    connectButton.Text = "Disconnect";
+                }
             }
-        }
-
-        private async void readBatteryLevelsTimer_Tick(object sender, EventArgs e)
-        {
-            var res = await _batteryMonitor.ReadBatteryLevels();
-            if (res.Status == BatteryMonitor.ReadStatus.Failure)
-            {
-                statusLabel.Text = String.Format(STATUS_READ_BATTERY_LEVEL_FAILED, res.ErrorMessage);
-            }
-            else if (res.Status == BatteryMonitor.ReadStatus.Success)
-            {
-                statusLabel.Text = String.Format(STATUS_CONNECTED, _deviceType, _deviceName);
-            }
-            else if (res.Status == BatteryMonitor.ReadStatus.NotConnected)
-            {
-                statusLabel.Text = String.Format(STATUS_READY);
-            }
-            else
-            {
-                Debug.Assert(res.Status == BatteryMonitor.ReadStatus.Success, "Unknown BatteryMonitor.ReadStatus");
-            }
-            UpdateTrayIcon(_batteryMonitor.IsConnected(), res.BatteryLevels);
+            connectButton.Enabled = true;
         }
     }
 }

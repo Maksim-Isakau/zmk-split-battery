@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Windows.Devices.Enumeration;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Storage.Streams;
+using System.Diagnostics;
 
 namespace ZMKSplit
 {
@@ -15,25 +14,55 @@ namespace ZMKSplit
         public static readonly Guid BATTERY_UUID = Guid.Parse("{0000180F-0000-1000-8000-00805F9B34FB}");
         public static readonly Guid BATTERY_LEVEL_UUID = Guid.Parse("{00002A19-0000-1000-8000-00805F9B34FB}");
 
-        public static readonly String ZMK_CENTRAL_HALF_NAME = "Central";
-        public static readonly String ZMK_PERIPHERAL_HALF_NAME = "Peripheral";
-
-        public enum DeviceType
-        {
-            Unknown,
-            Generic,
-            ZMK,
-        }
+        public delegate void ListDevicesCallback(string deviceName, string deviceID);
+        public delegate void ListDevicesCompletionCallback();
+        public delegate void BatteryLevelChangedCallback();
 
         public struct BatteryStatus
         {
-            public List<int> BatteryLevels { get; set; }
-            public int MinBatteryLevel { get => BatteryLevels.Min(); }
+            public string Name { get; set; }
+            public int Level { get; set; }
         };
 
-        public BatteryStatus? GetBatteryStatus()
+        public enum ConnectStatus
         {
-            return _bleDevice?.BatteryStatus;
+            Connected,
+            DeviceNotFound,
+            BatteryServiceNotFound,
+            BatteryLevelCharacteristicNotFound,
+            SubscribtionFailure,
+        }
+
+        public struct ConnectResult
+        {
+            public ConnectStatus Status { get; set; }
+            public string ErrorMessage { get; set; }
+        }
+
+        public enum ReadStatus
+        {
+            Success,
+            NotConnected,
+            Failure,
+        }
+
+        public struct ReadBatteryLevelResult
+        {
+            public ReadStatus Status { get; set; }
+            public Dictionary<ushort, BatteryStatus> Batteries { get; set; }
+            public string ErrorMessage { get; set; }
+
+            public ReadBatteryLevelResult(ReadStatus status, GattCharacteristic gc, int singleValue) : this(status, "")
+            {
+                Batteries[gc.AttributeHandle] = new BatteryStatus { Name = gc.UserDescription, Level = singleValue };
+            }
+
+            public ReadBatteryLevelResult(ReadStatus status, string errorMessage)
+            {
+                Status = status;
+                Batteries = new Dictionary<ushort, BatteryStatus>();
+                ErrorMessage = errorMessage;
+            }
         }
 
         private class BLEDevice
@@ -42,7 +71,6 @@ namespace ZMKSplit
             public BluetoothLEDevice Device { get; set; }
             public GattDeviceService GattService { get; set; }
             public IReadOnlyList<GattCharacteristic> GattCharacteristics { get; set; }
-            public BatteryStatus BatteryStatus { get; set; }
 
             public BLEDevice(string name, BluetoothLEDevice dev, GattDeviceService gattSrv, IReadOnlyList<GattCharacteristic> gattChrs)
             {
@@ -50,18 +78,20 @@ namespace ZMKSplit
                 Device = dev;
                 GattService = gattSrv;
                 GattCharacteristics = gattChrs;
-                BatteryStatus = new BatteryStatus();
             }
         };
 
+        public Dictionary<ushort, BatteryStatus> Batteries { get => _batteries; }
+
+        private Dictionary<ushort, BatteryStatus> _batteries = new Dictionary<ushort, BatteryStatus>();
         private BLEDevice? _bleDevice;
+        private BatteryLevelChangedCallback _batteryLevelChangedCallback;
 
-        public BatteryMonitor()
+        public BatteryMonitor(BatteryLevelChangedCallback cb)
         {
+            _batteryLevelChangedCallback = cb;
         }
-
-        public delegate void ListDevicesCallback(string deviceName, string deviceID);
-        public delegate void ListDevicesCompletionCallback();
+        
         public static void ListPairedDevices(ListDevicesCallback cb, ListDevicesCompletionCallback completionCB)
         {
             string aqsFilter = "(System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\")";
@@ -90,36 +120,20 @@ namespace ZMKSplit
             };
             watcher.Start();
         }
-
-        public enum ConnectStatus
-        {
-            Connected,
-            DeviceNotFound,
-            BatteryServiceNotFound,
-            BatteryLevelCharacteristicNotFound
-        }
-
-        public struct ConnectResult
-        {
-            public ConnectStatus Status { get; set; }
-            public DeviceType Type { get; set; }
-            public string ErrorMessage { get; set; }
-        }
-
+        
         public async Task<ConnectResult> Connect(string deviceName, string deviceID)
         {
-            _bleDevice = null;
-            
+            Disconnect();
             var dev = await BluetoothLEDevice.FromIdAsync(deviceID);
             if (dev == null)
             {
-                return new ConnectResult { Status = ConnectStatus.DeviceNotFound, Type = DeviceType.Unknown };
+                return new ConnectResult { Status = ConnectStatus.DeviceNotFound };
             }
             
             var gattServices = await dev.GetGattServicesForUuidAsync(BATTERY_UUID, BluetoothCacheMode.Uncached).AsTask();
             if (gattServices == null)
             {
-                return new ConnectResult { Status = ConnectStatus.BatteryServiceNotFound, Type = DeviceType.Unknown };
+                return new ConnectResult { Status = ConnectStatus.BatteryServiceNotFound };
             }
 
             List<GattCharacteristicsResult?> gattCharacteristicsResults = new List<GattCharacteristicsResult?>();
@@ -130,75 +144,82 @@ namespace ZMKSplit
                 gattCharacteristicsResults.Add(gattCharacteristics);
             }
 
-            DeviceType deviceType = DeviceType.Generic;
-
-            // first search for ZMK Split, it has two parts named "Central" and "Peripheral"
-            var selectedIndex = gattCharacteristicsResults.FindIndex(c =>
+            // find longest
+            int maxChars = 0;
+            int selectedIndex = -1;
+            for (int i = 0; i < gattCharacteristicsResults.Count; i++)
             {
-                return
-                    c != null && c.Characteristics.Count == 2 &&
-                    c.Characteristics[0].UserDescription == ZMK_CENTRAL_HALF_NAME &&
-                    c.Characteristics[1].UserDescription == ZMK_PERIPHERAL_HALF_NAME;
-            });
-
-            // generic BLE device with two batteries?
-            if (selectedIndex == -1)
-            {
-                selectedIndex = gattCharacteristicsResults.FindIndex(c => c != null && c.Characteristics.Count == 2);
-            }
-            else
-            {
-                deviceType = DeviceType.ZMK;
-            }
-
-            // generic BLE device with one battery?
-            if (selectedIndex == -1)
-            {
-                selectedIndex = gattCharacteristicsResults.FindIndex(c => c != null && c.Characteristics.Count == 1);
+                if (gattCharacteristicsResults[i] != null && gattCharacteristicsResults[i]!.Characteristics.Count > maxChars)
+                {
+                    maxChars = gattCharacteristicsResults[i]!.Characteristics.Count;
+                    selectedIndex = i;
+                }
             }
 
             if (selectedIndex != -1)
             {
+                foreach (var gc in gattCharacteristicsResults[selectedIndex]!.Characteristics)
+                {
+                    try
+                    {
+                        await gc.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.Notify);
+                    }
+                    catch (Exception e)
+                    {
+                        _batteries.Clear();
+                        return new ConnectResult { Status = ConnectStatus.SubscribtionFailure, ErrorMessage = e.Message };
+                    }
+                    _batteries[gc.AttributeHandle] = new BatteryStatus { Name = gc.UserDescription, Level = -1 };
+                    gc.ValueChanged += OnGattValueChanged;
+                    
+                }
                 _bleDevice = new BLEDevice(deviceName, dev, gattServices.Services[selectedIndex], gattCharacteristicsResults[selectedIndex]!.Characteristics);
-                return new ConnectResult { Status = ConnectStatus.Connected, Type = deviceType };
+
+                var readResult = await ReadBatteryLevels();
+                if (readResult.Status == ReadStatus.Success)
+                {
+                    _batteries = readResult.Batteries;
+                }
+                
+                return new ConnectResult { Status = ConnectStatus.Connected };
             }
             else
             {
-                return new ConnectResult { Status = ConnectStatus.BatteryLevelCharacteristicNotFound, Type = deviceType };
+                return new ConnectResult { Status = ConnectStatus.BatteryLevelCharacteristicNotFound };
+            }
+        }
+
+        public async void Disconnect()
+        {
+            _batteries.Clear();
+            if (_bleDevice != null)
+            {
+                var dev = _bleDevice!.Device;
+                var gattSvc = _bleDevice!.GattService;
+                var chars = _bleDevice.GattCharacteristics;
+
+                _bleDevice = null;
+
+                foreach (var gc in chars)
+                {
+                    try
+                    {
+                        await gc.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.None); ;
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.WriteLine("Unable to unsubscribe from peripherial " + gc.UserDescription + ":" + e.Message);
+                    }
+                    gc.ValueChanged -= OnGattValueChanged;
+                }
+                dev.Dispose();
+                gattSvc.Dispose();
             }
         }
 
         public bool IsConnected()
         {
             return _bleDevice != null;
-        }
-
-        public enum ReadStatus
-        {
-            Success,
-            NotConnected,
-            Failure,
-        }
-
-        public struct ReadBatteryLevelResult
-        {
-            public ReadStatus Status { get; set; }
-            public List<(string, int)> BatteryLevels { get; set; }
-            public string ErrorMessage { get; set; }
-
-            public ReadBatteryLevelResult(ReadStatus status, int singleValue)
-            {
-                Status = status;
-                BatteryLevels = new List<(string, int)>() { ("", singleValue) };
-                ErrorMessage = "";
-            }
-
-            public ReadBatteryLevelResult(ReadStatus status, string errorMessage)
-            {
-                Status = status;
-                BatteryLevels = new List<(string, int)>();
-                ErrorMessage = errorMessage;
-            }
         }
 
         private async Task<ReadBatteryLevelResult> ReadBatteryLevel(GattCharacteristic gc)
@@ -220,7 +241,7 @@ namespace ZMKSplit
                 byte[] data = new byte[buffer.Length];
                 DataReader.FromBuffer(buffer).ReadBytes(data);
                 int lvl = data[0] == 255 ? -1 : data[0];
-                return new ReadBatteryLevelResult(ReadStatus.Success, lvl);
+                return new ReadBatteryLevelResult(ReadStatus.Success, gc, lvl);
             }
             catch (Exception e)
             {
@@ -234,15 +255,24 @@ namespace ZMKSplit
                 return new ReadBatteryLevelResult { Status = ReadStatus.NotConnected }; ;
 
             var bleDev = _bleDevice;
-            List<(string, int)> batteryLevels = new List<(string, int)>();
+            var overalResult = new ReadBatteryLevelResult(ReadStatus.Success, "");
             foreach (var gc in bleDev.GattCharacteristics)
             {
                 var res = await ReadBatteryLevel(gc);
                 if (res.Status != ReadStatus.Success)
                     return res;
-                batteryLevels.Add((gc.UserDescription, res.BatteryLevels[0].Item2));
+                overalResult.Batteries.Add(gc.AttributeHandle, res.Batteries[gc.AttributeHandle]);
             }
-            return new ReadBatteryLevelResult { Status = ReadStatus.Success, BatteryLevels = batteryLevels };
+            return overalResult;
+        }
+
+        public void OnGattValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
+        {
+            byte[] data = new byte[args.CharacteristicValue.Length];
+            DataReader.FromBuffer(args.CharacteristicValue).ReadBytes(data);
+            int lvl = data[0] == 255 ? -1 : data[0];
+            _batteries[sender.AttributeHandle] = new BatteryStatus { Name = sender.UserDescription, Level = lvl };
+            _batteryLevelChangedCallback();
         }
     }
 }
