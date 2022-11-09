@@ -158,15 +158,6 @@ namespace ZMKSplit
             {
                 foreach (var gc in gattCharacteristicsResults[selectedIndex]!.Characteristics)
                 {
-                    try
-                    {
-                        await gc.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.Notify);
-                    }
-                    catch (Exception e)
-                    {
-                        _batteries.Clear();
-                        return new ConnectResult { Status = ConnectStatus.SubscribtionFailure, ErrorMessage = e.Message };
-                    }
                     _batteries[gc.AttributeHandle] = new BatteryStatus { Name = gc.UserDescription, Level = -1 };
                     gc.ValueChanged += OnGattValueChanged;
                     
@@ -187,30 +178,17 @@ namespace ZMKSplit
             }
         }
 
-        public async void Disconnect()
+        public void Disconnect()
         {
             _batteries.Clear();
             if (_bleDevice != null)
             {
-                var dev = _bleDevice!.Device;
-                var chars = _bleDevice.GattCharacteristics;
-
-                _bleDevice = null;
-
-                foreach (var gc in chars)
+                foreach (var gc in _bleDevice.GattCharacteristics)
                 {
-                    try
-                    {
-                        await gc.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.None); ;
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.WriteLine("Unable to unsubscribe from peripherial " + gc.UserDescription + ":" + e.Message);
-                    }
                     gc.ValueChanged -= OnGattValueChanged;
-                    gc.Service.Dispose();
                 }
-                dev.Dispose();
+                _bleDevice.Device.Dispose();
+                _bleDevice = null;
             }
         }
 
