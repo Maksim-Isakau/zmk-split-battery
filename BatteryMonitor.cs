@@ -69,14 +69,12 @@ namespace ZMKSplit
         {
             public string Name { get; set; }
             public BluetoothLEDevice Device { get; set; }
-            public GattDeviceService GattService { get; set; }
             public IReadOnlyList<GattCharacteristic> GattCharacteristics { get; set; }
 
-            public BLEDevice(string name, BluetoothLEDevice dev, GattDeviceService gattSrv, IReadOnlyList<GattCharacteristic> gattChrs)
+            public BLEDevice(string name, BluetoothLEDevice dev, IReadOnlyList<GattCharacteristic> gattChrs)
             {
                 Name = name;
                 Device = dev;
-                GattService = gattSrv;
                 GattCharacteristics = gattChrs;
             }
         };
@@ -173,7 +171,7 @@ namespace ZMKSplit
                     gc.ValueChanged += OnGattValueChanged;
                     
                 }
-                _bleDevice = new BLEDevice(deviceName, dev, gattServices.Services[selectedIndex], gattCharacteristicsResults[selectedIndex]!.Characteristics);
+                _bleDevice = new BLEDevice(deviceName, dev, gattCharacteristicsResults[selectedIndex]!.Characteristics);
 
                 var readResult = await ReadBatteryLevels();
                 if (readResult.Status == ReadStatus.Success)
@@ -195,7 +193,6 @@ namespace ZMKSplit
             if (_bleDevice != null)
             {
                 var dev = _bleDevice!.Device;
-                var gattSvc = _bleDevice!.GattService;
                 var chars = _bleDevice.GattCharacteristics;
 
                 _bleDevice = null;
@@ -211,9 +208,9 @@ namespace ZMKSplit
                         Debug.WriteLine("Unable to unsubscribe from peripherial " + gc.UserDescription + ":" + e.Message);
                     }
                     gc.ValueChanged -= OnGattValueChanged;
+                    gc.Service.Dispose();
                 }
                 dev.Dispose();
-                gattSvc.Dispose();
             }
         }
 
