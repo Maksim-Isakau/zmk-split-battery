@@ -177,22 +177,27 @@ namespace ZMKSplit
         
         public void UpdateTrayIcon()
         {
+            int minLevel = 100;
             if (!_batteryMonitor.IsConnected() || _batteryMonitor.Batteries.Count == 0)
             {
-                notifyIcon.Icon = GetBatteryIcon(-1);
+                minLevel = -1;
                 notifyIcon.Text = "Not connected";
+            }
+            else if (_batteryMonitor.Batteries.Count == 1)
+            {
+                minLevel = _batteryMonitor.Batteries.First().Value.Level;
+                notifyIcon.Text = String.Format("{0}: {1}%", _deviceName, minLevel);
             }
             else
             {
-                int minLevel = 100;
                 notifyIcon.Text = _deviceName + "\n";
                 foreach (var battery in _batteryMonitor.Batteries.Values)
                 {
                     notifyIcon.Text += battery.Name + ": " + battery.Level + "%\n";
                     minLevel = Math.Min(minLevel, battery.Level);
                 }
-                notifyIcon.Icon = GetBatteryIcon(minLevel);
             }
+            notifyIcon.Icon = GetBatteryIcon(minLevel);
         }
 
         private void reloadButton_MouseClick(object sender, MouseEventArgs e)
