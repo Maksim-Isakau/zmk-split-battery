@@ -54,6 +54,7 @@ namespace ZMKSplit
 
         private void ListBLEDevices()
         {
+            devicesListView.Items.Clear();
             reloadButton.Enabled = false;
             reloadButton.Text = RELOAD_BUTTON_STATE_RELOADING;
             BatteryMonitor.ListPairedDevices((string deviceName, string deviceID) =>
@@ -89,7 +90,6 @@ namespace ZMKSplit
             
             statusLabel.Text = String.Format(STATUS_CONNECTING, deviceName);
             
-
             var res = await _batteryMonitor.Connect(deviceName, deviceID);
 
             if (res.Status == BatteryMonitor.ConnectStatus.DeviceNotFound)
