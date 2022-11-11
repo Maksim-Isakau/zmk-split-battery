@@ -14,6 +14,7 @@ using System.Linq;
 using Windows.Storage.Streams;
 using System.Diagnostics;
 using static ZMKSplit.BatteryMonitor;
+using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace ZMKSplit
 {
@@ -31,15 +32,18 @@ namespace ZMKSplit
         public static readonly String STATUS_READY = "Ready";
         public static readonly String STATUS_READ_BATTERY_LEVEL_FAILED = "Could not read battery level: {0}";
 
+        public static readonly int    BATTERY_LOW_LEVEL_THRESHOLD = 20;
+        public static readonly string BATTERY_LOW_TIP_TITLE = "Low battery";
+        public static readonly string BATTERY_LOW_TIP_MESSAGE = "{0} battery level is below " + BATTERY_LOW_LEVEL_THRESHOLD + "%";
+
         private BatteryMonitor _batteryMonitor;
-        private string _deviceName;
-        private string _deviceID;
+        private string _deviceName = "";
+        private string _deviceID = "";
+        private int _lastMinLevel = -1;
 
         public MainForm()
         {
             _batteryMonitor = new BatteryMonitor(OnBatteryLevelChanged);
-            _deviceName = "";
-            _deviceID = "";
             InitializeComponent();
         }
 
@@ -198,6 +202,13 @@ namespace ZMKSplit
                 }
             }
             notifyIcon.Icon = GetBatteryIcon(minLevel);
+            if (_lastMinLevel > BATTERY_LOW_LEVEL_THRESHOLD && minLevel != -1 && minLevel <= BATTERY_LOW_LEVEL_THRESHOLD)
+            {
+                new ToastContentBuilder()
+                    .AddText(BATTERY_LOW_TIP_TITLE)
+                    .AddText(String.Format(BATTERY_LOW_TIP_MESSAGE, _deviceName))
+                    .Show();
+            }
         }
 
         private void reloadButton_MouseClick(object sender, MouseEventArgs e)
