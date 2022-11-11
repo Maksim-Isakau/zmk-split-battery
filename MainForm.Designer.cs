@@ -32,10 +32,14 @@
             this.devicesListView = new System.Windows.Forms.ListView();
             this.NameColumn = new System.Windows.Forms.ColumnHeader();
             this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
+            this.trayContextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.exitContextMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.showContextMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.reloadButton = new System.Windows.Forms.Button();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.statusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.connectButton = new System.Windows.Forms.Button();
+            this.trayContextMenu.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -67,7 +71,31 @@
             // 
             // notifyIcon
             // 
+            this.notifyIcon.ContextMenuStrip = this.trayContextMenu;
             this.notifyIcon.Visible = true;
+            // 
+            // trayContextMenu
+            // 
+            this.trayContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.showContextMenuItem,
+            this.exitContextMenuItem});
+            this.trayContextMenu.Name = "trayContextMenu";
+            this.trayContextMenu.Size = new System.Drawing.Size(181, 70);
+            // 
+            // exitContextMenuItem
+            // 
+            this.exitContextMenuItem.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.exitContextMenuItem.Name = "exitContextMenuItem";
+            this.exitContextMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.exitContextMenuItem.Text = "E&xit";
+            this.exitContextMenuItem.Click += new System.EventHandler(this.exitContextMenuItem_Click);
+            // 
+            // showContextMenuItem
+            // 
+            this.showContextMenuItem.Name = "showContextMenuItem";
+            this.showContextMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.showContextMenuItem.Text = "Show";
+            this.showContextMenuItem.Click += new System.EventHandler(this.showContextMenuItem_Click);
             // 
             // reloadButton
             // 
@@ -120,7 +148,9 @@
             this.Controls.Add(this.devicesListView);
             this.Name = "MainForm";
             this.Text = "ZMK Split Battery Status";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.Load += new System.EventHandler(this.MainForm_Load);
+            this.trayContextMenu.ResumeLayout(false);
             this.statusStrip1.ResumeLayout(false);
             this.statusStrip1.PerformLayout();
             this.ResumeLayout(false);
@@ -137,5 +167,8 @@
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel statusLabel;
         private System.Windows.Forms.Button connectButton;
+        private System.Windows.Forms.ContextMenuStrip trayContextMenu;
+        private System.Windows.Forms.ToolStripMenuItem exitContextMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem showContextMenuItem;
     }
 }

@@ -231,5 +231,24 @@ namespace ZMKSplit
             }
             connectButton.Enabled = true;
         }
+
+        private void exitContextMenuItem_Click(object sender, EventArgs e)
+        {
+            Application.Exit();
+        }
+
+        private void showContextMenuItem_Click(object sender, EventArgs e)
+        {
+            Show();
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+                Hide();
+            }
+        }
     }
 }
