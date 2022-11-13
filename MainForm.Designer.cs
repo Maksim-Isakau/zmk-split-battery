@@ -31,18 +31,18 @@
             this.components = new System.ComponentModel.Container();
             this.DevicesListView = new System.Windows.Forms.ListView();
             this.NameColumn = new System.Windows.Forms.ColumnHeader();
-            this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
-            this.trayContextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.NotifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
+            this.TrayContextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.showContextMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exitContextMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.ReloadButton = new System.Windows.Forms.Button();
-            this.statusStrip1 = new System.Windows.Forms.StatusStrip();
+            this.StatusStrip1 = new System.Windows.Forms.StatusStrip();
             this.StatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.ConnectButton = new System.Windows.Forms.Button();
             this.ReconnectTimer = new System.Windows.Forms.Timer(this.components);
             this.AutoRunCheckBox = new System.Windows.Forms.CheckBox();
-            this.trayContextMenu.SuspendLayout();
-            this.statusStrip1.SuspendLayout();
+            this.TrayContextMenu.SuspendLayout();
+            this.StatusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // DevicesListView
@@ -71,23 +71,24 @@
             this.NameColumn.Text = "Name";
             this.NameColumn.Width = 378;
             // 
-            // notifyIcon
+            // NotifyIcon
             // 
-            this.notifyIcon.ContextMenuStrip = this.trayContextMenu;
-            this.notifyIcon.Visible = true;
+            this.NotifyIcon.ContextMenuStrip = this.TrayContextMenu;
+            this.NotifyIcon.Visible = true;
+            this.NotifyIcon.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.NotifyIcon_MouseDoubleClick);
             // 
-            // trayContextMenu
+            // TrayContextMenu
             // 
-            this.trayContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.TrayContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.showContextMenuItem,
             this.exitContextMenuItem});
-            this.trayContextMenu.Name = "trayContextMenu";
-            this.trayContextMenu.Size = new System.Drawing.Size(104, 48);
+            this.TrayContextMenu.Name = "trayContextMenu";
+            this.TrayContextMenu.Size = new System.Drawing.Size(104, 48);
             // 
             // showContextMenuItem
             // 
             this.showContextMenuItem.Name = "showContextMenuItem";
-            this.showContextMenuItem.Size = new System.Drawing.Size(103, 22);
+            this.showContextMenuItem.Size = new System.Drawing.Size(180, 22);
             this.showContextMenuItem.Text = "Show";
             this.showContextMenuItem.Click += new System.EventHandler(this.ShowContextMenuItem_Click);
             // 
@@ -95,7 +96,7 @@
             // 
             this.exitContextMenuItem.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.exitContextMenuItem.Name = "exitContextMenuItem";
-            this.exitContextMenuItem.Size = new System.Drawing.Size(103, 22);
+            this.exitContextMenuItem.Size = new System.Drawing.Size(180, 22);
             this.exitContextMenuItem.Text = "E&xit";
             this.exitContextMenuItem.Click += new System.EventHandler(this.ExitContextMenuItem_Click);
             // 
@@ -111,15 +112,15 @@
             this.ReloadButton.UseVisualStyleBackColor = true;
             this.ReloadButton.MouseClick += new System.Windows.Forms.MouseEventHandler(this.ReloadButton_MouseClick);
             // 
-            // statusStrip1
+            // StatusStrip1
             // 
-            this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.StatusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.StatusLabel});
-            this.statusStrip1.Location = new System.Drawing.Point(0, 384);
-            this.statusStrip1.Name = "statusStrip1";
-            this.statusStrip1.Size = new System.Drawing.Size(577, 22);
-            this.statusStrip1.TabIndex = 4;
-            this.statusStrip1.Text = "statusStrip1";
+            this.StatusStrip1.Location = new System.Drawing.Point(0, 384);
+            this.StatusStrip1.Name = "StatusStrip1";
+            this.StatusStrip1.Size = new System.Drawing.Size(577, 22);
+            this.StatusStrip1.TabIndex = 4;
+            this.StatusStrip1.Text = "statusStrip1";
             // 
             // StatusLabel
             // 
@@ -163,16 +164,16 @@
             this.ClientSize = new System.Drawing.Size(577, 406);
             this.Controls.Add(this.AutoRunCheckBox);
             this.Controls.Add(this.ConnectButton);
-            this.Controls.Add(this.statusStrip1);
+            this.Controls.Add(this.StatusStrip1);
             this.Controls.Add(this.ReloadButton);
             this.Controls.Add(this.DevicesListView);
             this.Name = "MainForm";
             this.Text = "ZMK Split Battery Status";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.Load += new System.EventHandler(this.MainForm_Load);
-            this.trayContextMenu.ResumeLayout(false);
-            this.statusStrip1.ResumeLayout(false);
-            this.statusStrip1.PerformLayout();
+            this.TrayContextMenu.ResumeLayout(false);
+            this.StatusStrip1.ResumeLayout(false);
+            this.StatusStrip1.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -181,13 +182,13 @@
         #endregion
 
         private System.Windows.Forms.ListView DevicesListView;
-        private System.Windows.Forms.NotifyIcon notifyIcon;
+        private System.Windows.Forms.NotifyIcon NotifyIcon;
         private System.Windows.Forms.Button ReloadButton;
         private System.Windows.Forms.ColumnHeader NameColumn;
-        private System.Windows.Forms.StatusStrip statusStrip1;
+        private System.Windows.Forms.StatusStrip StatusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel StatusLabel;
         private System.Windows.Forms.Button ConnectButton;
-        private System.Windows.Forms.ContextMenuStrip trayContextMenu;
+        private System.Windows.Forms.ContextMenuStrip TrayContextMenu;
         private System.Windows.Forms.ToolStripMenuItem exitContextMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showContextMenuItem;
         private System.Windows.Forms.Timer ReconnectTimer;

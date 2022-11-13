@@ -302,23 +302,23 @@ namespace ZMKSplit
             if (!_batteryMonitor.IsConnected() || _batteryMonitor.Batteries.Count == 0)
             {
                 minLevel = -1;
-                notifyIcon.Text = "Not connected";
+                NotifyIcon.Text = "Not connected";
             }
             else if (_batteryMonitor.Batteries.Count == 1)
             {
                 minLevel = _batteryMonitor.Batteries.First().Value.Level;
-                notifyIcon.Text = String.Format("{0}: {1}%", _deviceName, minLevel);
+                NotifyIcon.Text = String.Format("{0}: {1}%", _deviceName, minLevel);
             }
             else
             {
-                notifyIcon.Text = _deviceName + "\n";
+                NotifyIcon.Text = _deviceName + "\n";
                 foreach (var battery in _batteryMonitor.Batteries.Values)
                 {
-                    notifyIcon.Text += battery.Name + ": " + battery.Level + "%\n";
+                    NotifyIcon.Text += battery.Name + ": " + battery.Level + "%\n";
                     minLevel = Math.Min(minLevel, battery.Level);
                 }
             }
-            notifyIcon.Icon = GetBatteryIcon(minLevel);
+            NotifyIcon.Icon = GetBatteryIcon(minLevel);
             if (_lastMinLevel > BATTERY_LOW_LEVEL_THRESHOLD && minLevel != -1 && minLevel <= BATTERY_LOW_LEVEL_THRESHOLD)
             {
                 new ToastContentBuilder()
@@ -410,6 +410,11 @@ namespace ZMKSplit
         private void AutoRunCheckBox_CheckedChanged(object sender, EventArgs e)
         {
             SetAutoRunEnabled(AutoRunCheckBox.Checked);
+        }
+
+        private void NotifyIcon_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            ShowContextMenuItem_Click(sender, e);
         }
     }
 }
