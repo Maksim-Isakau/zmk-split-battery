@@ -32,12 +32,16 @@ namespace ZMKSplit
         public static readonly String STATUS_CONNECTED = "Connected to {0}";
         public static readonly String STATUS_READY = "Ready";
         public static readonly String STATUS_READ_BATTERY_LEVEL_FAILED = "Could not read battery level: {0}";
+        public static readonly String STATUS_COULD_NOT_OPEN_REG_KEY = "Could not open registry key: {0}";
 
         public static readonly int    BATTERY_LOW_LEVEL_THRESHOLD = 20;
         public static readonly string BATTERY_LOW_TIP_TITLE = "Low battery";
         public static readonly string BATTERY_LOW_TIP_MESSAGE = "{0} battery level is below " + BATTERY_LOW_LEVEL_THRESHOLD + "%";
 
         public static readonly int    RECONNECT_INTERVAL = 300;
+
+        public static readonly string STARTUP_ARG_DEVICE_NAME = "-devicename";
+        public static readonly string STARTUP_ARG_DEVICE_ID = "-deviceid";
 
         private BatteryMonitor _batteryMonitor;
         private string _deviceName = "";
@@ -62,6 +66,7 @@ namespace ZMKSplit
             StatusLabel.Text = STATUS_READY;
             ConnectButton.Text = CONNECT_BUTTON_CONNECT;
             ReloadButton.Text = RELOAD_BUTTON_STATE_READY;
+            AutoRunCheckBox.Checked = IsAutoRunEnabled();
 
             ParseCommandLineArguments();
 
@@ -84,18 +89,18 @@ namespace ZMKSplit
                 ListBLEDevices();
             }
         }
-
+        
         private void ParseCommandLineArguments()
         {
             // parse -deviceid and -devicename
             string[] args = Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length; i++)
             {
-                if (args[i] == "-deviceid" && i + 1 < args.Length)
+                if (args[i] == STARTUP_ARG_DEVICE_ID && i + 1 < args.Length)
                 {
                     _deviceID = args[++i].Trim("\"".ToCharArray());
                 }
-                else if (args[i] == "-devicename" && i + 1 < args.Length)
+                else if (args[i] == STARTUP_ARG_DEVICE_NAME && i + 1 < args.Length)
                 {
                     _deviceName = args[++i].Trim("\"".ToCharArray());
                 }
@@ -157,10 +162,15 @@ namespace ZMKSplit
                 Debug.Assert(res.Status == BatteryMonitor.ConnectStatus.Connected, "Unknown BatteryMonitor.ConnectStatus");
                 if (res.Status == BatteryMonitor.ConnectStatus.Connected)
                 {
-                    this._deviceName = deviceName;
+                    _deviceName = deviceName;
                     _deviceID = deviceID;
-                    StatusLabel.Text = string.Format(STATUS_CONNECTED, this._deviceName);
+                    StatusLabel.Text = string.Format(STATUS_CONNECTED, _deviceName);
                     UpdateTrayIcon();
+                    if (AutoRunCheckBox.Checked)
+                    {
+                        // refresh credentials stored in registry
+                        SetAutoRunEnabled(true);
+                    }
                 }
             }
 
@@ -189,6 +199,55 @@ namespace ZMKSplit
             UpdateTrayIcon();
         }
 
+        private bool IsAutoRunEnabled()
+        {
+            var keyPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+            var keyOpt = Registry.CurrentUser.OpenSubKey(keyPath);
+
+            if (keyOpt is RegistryKey key)
+            {
+                return key.GetValue(Application.ProductName) is String;
+            }
+            else
+            {
+                StatusLabel.Text = String.Format(STATUS_COULD_NOT_OPEN_REG_KEY, keyPath);
+                return false;
+            }
+        }
+
+        private bool SetAutoRunEnabled(bool enabled)
+        {
+            var keyPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+            var keyOpt =  Registry.CurrentUser.OpenSubKey(keyPath, true);
+            
+            if (keyOpt is RegistryKey key)
+            {
+                if (enabled)
+                {
+                    string value;
+                    if (_deviceName.Length != 0 && _deviceID.Length != 0)
+                    {
+                        value = String.Format("\"{0}\" {1} \"{2}\" {3} \"{4}\"", Application.ExecutablePath, STARTUP_ARG_DEVICE_NAME, _deviceName, STARTUP_ARG_DEVICE_ID, _deviceID);
+                    }
+                    else
+                    {
+                        value = String.Format("\"{0}\"", Application.ExecutablePath);
+                    }
+                    key.SetValue(Application.ProductName, value);
+                }
+                else
+                {
+                    key.DeleteValue(Application.ProductName, false);
+                }
+                return true;
+            }
+            else
+            {
+                StatusLabel.Text = String.Format(STATUS_COULD_NOT_OPEN_REG_KEY, keyPath);
+                return false;
+            }
+        }
+
         private void PreferenceChangedHandler(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
         {
             if (e.Category == UserPreferenceCategory.General)
@@ -200,7 +259,8 @@ namespace ZMKSplit
 
         private bool IsWindowsThemeLight()
         {
-            var keyOpt = Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize");
+            var keyPath = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
+            var keyOpt = Registry.CurrentUser.OpenSubKey(keyPath);
             if (keyOpt is RegistryKey key)
             {
                 var valOpt = key.GetValue("SystemUsesLightTheme");
@@ -208,6 +268,10 @@ namespace ZMKSplit
                 {
                     return val != 0;
                 }
+            }
+            else
+            {
+                StatusLabel.Text = String.Format(STATUS_COULD_NOT_OPEN_REG_KEY, keyPath);
             }
             return true;
         }
@@ -341,6 +405,11 @@ namespace ZMKSplit
             {
                 StatusLabel.Text = String.Format(STATUS_CONNECTING_IN, _deviceName, _reconnectCounter);
             }
+        }
+
+        private void AutoRunCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            SetAutoRunEnabled(AutoRunCheckBox.Checked);
         }
     }
 }

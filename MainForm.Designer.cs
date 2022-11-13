@@ -40,11 +40,12 @@
             this.StatusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.ConnectButton = new System.Windows.Forms.Button();
             this.ReconnectTimer = new System.Windows.Forms.Timer(this.components);
+            this.AutoRunCheckBox = new System.Windows.Forms.CheckBox();
             this.trayContextMenu.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
-            // devicesListView
+            // DevicesListView
             // 
             this.DevicesListView.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
@@ -57,7 +58,7 @@
             this.DevicesListView.HideSelection = false;
             this.DevicesListView.Location = new System.Drawing.Point(12, 12);
             this.DevicesListView.MultiSelect = false;
-            this.DevicesListView.Name = "devicesListView";
+            this.DevicesListView.Name = "DevicesListView";
             this.DevicesListView.ShowGroups = false;
             this.DevicesListView.Size = new System.Drawing.Size(382, 369);
             this.DevicesListView.TabIndex = 0;
@@ -98,12 +99,12 @@
             this.exitContextMenuItem.Text = "E&xit";
             this.exitContextMenuItem.Click += new System.EventHandler(this.ExitContextMenuItem_Click);
             // 
-            // reloadButton
+            // ReloadButton
             // 
             this.ReloadButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.ReloadButton.FlatStyle = System.Windows.Forms.FlatStyle.System;
             this.ReloadButton.Location = new System.Drawing.Point(407, 12);
-            this.ReloadButton.Name = "reloadButton";
+            this.ReloadButton.Name = "ReloadButton";
             this.ReloadButton.Size = new System.Drawing.Size(158, 32);
             this.ReloadButton.TabIndex = 3;
             this.ReloadButton.Text = "Refresh";
@@ -120,18 +121,18 @@
             this.statusStrip1.TabIndex = 4;
             this.statusStrip1.Text = "statusStrip1";
             // 
-            // statusLabel
+            // StatusLabel
             // 
-            this.StatusLabel.Name = "statusLabel";
+            this.StatusLabel.Name = "StatusLabel";
             this.StatusLabel.Size = new System.Drawing.Size(39, 17);
             this.StatusLabel.Text = "Ready";
             // 
-            // connectButton
+            // ConnectButton
             // 
             this.ConnectButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.ConnectButton.FlatStyle = System.Windows.Forms.FlatStyle.System;
             this.ConnectButton.Location = new System.Drawing.Point(407, 50);
-            this.ConnectButton.Name = "connectButton";
+            this.ConnectButton.Name = "ConnectButton";
             this.ConnectButton.Size = new System.Drawing.Size(158, 32);
             this.ConnectButton.TabIndex = 5;
             this.ConnectButton.Text = "Connect";
@@ -143,11 +144,24 @@
             this.ReconnectTimer.Interval = 1000;
             this.ReconnectTimer.Tick += new System.EventHandler(this.ReconnectTimer_Tick);
             // 
+            // AutoRunCheckBox
+            // 
+            this.AutoRunCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.AutoRunCheckBox.AutoSize = true;
+            this.AutoRunCheckBox.Location = new System.Drawing.Point(408, 88);
+            this.AutoRunCheckBox.Name = "AutoRunCheckBox";
+            this.AutoRunCheckBox.Size = new System.Drawing.Size(152, 19);
+            this.AutoRunCheckBox.TabIndex = 6;
+            this.AutoRunCheckBox.Text = "Run at Windows startup";
+            this.AutoRunCheckBox.UseVisualStyleBackColor = true;
+            this.AutoRunCheckBox.CheckedChanged += new System.EventHandler(this.AutoRunCheckBox_CheckedChanged);
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(577, 406);
+            this.Controls.Add(this.AutoRunCheckBox);
             this.Controls.Add(this.ConnectButton);
             this.Controls.Add(this.statusStrip1);
             this.Controls.Add(this.ReloadButton);
@@ -177,5 +191,6 @@
         private System.Windows.Forms.ToolStripMenuItem exitContextMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showContextMenuItem;
         private System.Windows.Forms.Timer ReconnectTimer;
+        private System.Windows.Forms.CheckBox AutoRunCheckBox;
     }
 }
