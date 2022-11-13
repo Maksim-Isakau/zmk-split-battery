@@ -33,12 +33,13 @@
             this.NameColumn = new System.Windows.Forms.ColumnHeader();
             this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
             this.trayContextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.exitContextMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showContextMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exitContextMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.reloadButton = new System.Windows.Forms.Button();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.statusLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.connectButton = new System.Windows.Forms.Button();
+            this.reconnectTimer = new System.Windows.Forms.Timer(this.components);
             this.trayContextMenu.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
@@ -80,22 +81,22 @@
             this.showContextMenuItem,
             this.exitContextMenuItem});
             this.trayContextMenu.Name = "trayContextMenu";
-            this.trayContextMenu.Size = new System.Drawing.Size(181, 70);
+            this.trayContextMenu.Size = new System.Drawing.Size(104, 48);
+            // 
+            // showContextMenuItem
+            // 
+            this.showContextMenuItem.Name = "showContextMenuItem";
+            this.showContextMenuItem.Size = new System.Drawing.Size(103, 22);
+            this.showContextMenuItem.Text = "Show";
+            this.showContextMenuItem.Click += new System.EventHandler(this.showContextMenuItem_Click);
             // 
             // exitContextMenuItem
             // 
             this.exitContextMenuItem.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.exitContextMenuItem.Name = "exitContextMenuItem";
-            this.exitContextMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.exitContextMenuItem.Size = new System.Drawing.Size(103, 22);
             this.exitContextMenuItem.Text = "E&xit";
             this.exitContextMenuItem.Click += new System.EventHandler(this.exitContextMenuItem_Click);
-            // 
-            // showContextMenuItem
-            // 
-            this.showContextMenuItem.Name = "showContextMenuItem";
-            this.showContextMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.showContextMenuItem.Text = "Show";
-            this.showContextMenuItem.Click += new System.EventHandler(this.showContextMenuItem_Click);
             // 
             // reloadButton
             // 
@@ -137,6 +138,11 @@
             this.connectButton.UseVisualStyleBackColor = true;
             this.connectButton.Click += new System.EventHandler(this.connectButton_Click);
             // 
+            // reconnectTimer
+            // 
+            this.reconnectTimer.Interval = 1000;
+            this.reconnectTimer.Tick += new System.EventHandler(this.reconnectTimer_Tick);
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
@@ -170,5 +176,6 @@
         private System.Windows.Forms.ContextMenuStrip trayContextMenu;
         private System.Windows.Forms.ToolStripMenuItem exitContextMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showContextMenuItem;
+        private System.Windows.Forms.Timer reconnectTimer;
     }
 }
