@@ -83,11 +83,11 @@ namespace ZMKSplit
 
         private Dictionary<ushort, BatteryStatus> _batteries = new Dictionary<ushort, BatteryStatus>();
         private BLEDevice? _bleDevice;
-        private BatteryLevelChangedCallback _batteryLevelChangedCallback;
+        private BatteryLevelChangedCallback _batteryLevelChangedCb;
 
         public BatteryMonitor(BatteryLevelChangedCallback cb)
         {
-            _batteryLevelChangedCallback = cb;
+            _batteryLevelChangedCb = cb;
         }
         
         public static void ListPairedDevices(ListDevicesCallback cb, ListDevicesCompletionCallback completionCB)
@@ -247,7 +247,7 @@ namespace ZMKSplit
             DataReader.FromBuffer(args.CharacteristicValue).ReadBytes(data);
             int lvl = data[0] == 255 ? -1 : data[0];
             _batteries[sender.AttributeHandle] = new BatteryStatus { Name = sender.UserDescription, Level = lvl };
-            _batteryLevelChangedCallback();
+            _batteryLevelChangedCb();
         }
     }
 }

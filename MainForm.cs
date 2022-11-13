@@ -59,9 +59,9 @@ namespace ZMKSplit
             
             Microsoft.Win32.SystemEvents.UserPreferenceChanged += new Microsoft.Win32.UserPreferenceChangedEventHandler(PreferenceChangedHandler);
             
-            statusLabel.Text = STATUS_READY;
-            connectButton.Text = CONNECT_BUTTON_CONNECT;
-            reloadButton.Text = RELOAD_BUTTON_STATE_READY;
+            StatusLabel.Text = STATUS_READY;
+            ConnectButton.Text = CONNECT_BUTTON_CONNECT;
+            ReloadButton.Text = RELOAD_BUTTON_STATE_READY;
 
             ParseCommandLineArguments();
 
@@ -74,7 +74,7 @@ namespace ZMKSplit
                 {
                     Hide();
                     _reconnectCounter = 1;
-                    reconnectTimer.Start();
+                    ReconnectTimer.Start();
                 }));
             }
             else
@@ -104,23 +104,23 @@ namespace ZMKSplit
 
         private void ListBLEDevices()
         {
-            devicesListView.Items.Clear();
-            reloadButton.Enabled = false;
-            reloadButton.Text = RELOAD_BUTTON_STATE_RELOADING;
+            DevicesListView.Items.Clear();
+            ReloadButton.Enabled = false;
+            ReloadButton.Text = RELOAD_BUTTON_STATE_RELOADING;
             BatteryMonitor.ListPairedDevices((string deviceName, string deviceID) =>
             {
                 BeginInvoke(new Action(() =>
                 {
-                    devicesListView.BeginUpdate();
-                    devicesListView.Items.Add(new ListViewItem { Text = deviceName, Tag = deviceID });
-                    devicesListView.EndUpdate();
+                    DevicesListView.BeginUpdate();
+                    DevicesListView.Items.Add(new ListViewItem { Text = deviceName, Tag = deviceID });
+                    DevicesListView.EndUpdate();
                 }));
             }, () =>
             {
                 BeginInvoke(new Action(() =>
                 {
-                    reloadButton.Enabled = true;
-                    reloadButton.Text = RELOAD_BUTTON_STATE_READY;
+                    ReloadButton.Enabled = true;
+                    ReloadButton.Text = RELOAD_BUTTON_STATE_READY;
                 }));
             });
         }
@@ -132,34 +132,34 @@ namespace ZMKSplit
 
         private async Task<bool> ConnectToDevice(string deviceName, string deviceID)
         {
-            statusLabel.Text = String.Format(STATUS_CONNECTING, deviceName);
+            StatusLabel.Text = String.Format(STATUS_CONNECTING, deviceName);
 
             var res = await _batteryMonitor.Connect(deviceName, deviceID);
 
             if (res.Status == BatteryMonitor.ConnectStatus.DeviceNotFound)
             {
-                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Device not found");
+                StatusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Device not found");
             }
             else if (res.Status == BatteryMonitor.ConnectStatus.BatteryServiceNotFound)
             {
-                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Battery service not found");
+                StatusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Battery service not found");
             }
             else if (res.Status == BatteryMonitor.ConnectStatus.BatteryLevelCharacteristicNotFound)
             {
-                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Could not find battery level GATT characteristic. Is the device offline?");
+                StatusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Could not find battery level GATT characteristic. Is the device offline?");
             }
             else if (res.Status == BatteryMonitor.ConnectStatus.SubscribtionFailure)
             {
-                statusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Could not subscribe to battery level notifications");
+                StatusLabel.Text = String.Format(STATUS_CONNECTION_FAILED, deviceName, "Could not subscribe to battery level notifications");
             }
             else
             {
                 Debug.Assert(res.Status == BatteryMonitor.ConnectStatus.Connected, "Unknown BatteryMonitor.ConnectStatus");
                 if (res.Status == BatteryMonitor.ConnectStatus.Connected)
                 {
-                    _deviceName = deviceName;
+                    this._deviceName = deviceName;
                     _deviceID = deviceID;
-                    statusLabel.Text = String.Format(STATUS_CONNECTED, _deviceName);
+                    StatusLabel.Text = string.Format(STATUS_CONNECTED, this._deviceName);
                     UpdateTrayIcon();
                 }
             }
@@ -169,13 +169,13 @@ namespace ZMKSplit
 
         private async Task<bool> ConnectToSelectedDevice()
         {
-            if (devicesListView.SelectedItems.Count == 0)
+            if (DevicesListView.SelectedItems.Count == 0)
                 return false;
             
-            string deviceName = devicesListView.SelectedItems[0].Text;
-            string deviceID = (string)devicesListView.SelectedItems[0].Tag;
+            string deviceName = DevicesListView.SelectedItems[0].Text;
+            string deviceID = (string)DevicesListView.SelectedItems[0].Tag;
 
-            reconnectTimer.Stop();
+            ReconnectTimer.Stop();
 
             return await ConnectToDevice(deviceName, deviceID);
         }
@@ -185,7 +185,7 @@ namespace ZMKSplit
             _batteryMonitor.Disconnect();
             _deviceName = "";
             _deviceID = "";
-            statusLabel.Text = STATUS_READY;
+            StatusLabel.Text = STATUS_READY;
             UpdateTrayIcon();
         }
 
@@ -264,44 +264,44 @@ namespace ZMKSplit
             }
         }
 
-        private void reloadButton_MouseClick(object sender, MouseEventArgs e)
+        private void ReloadButton_MouseClick(object sender, MouseEventArgs e)
         {
             ListBLEDevices();
         }
 
-        private void devicesListView_DoubleClick(object sender, EventArgs e)
+        private void DevicesListView_DoubleClick(object sender, EventArgs e)
         {
-            if (connectButton.Enabled && !_batteryMonitor.IsConnected())
+            if (ConnectButton.Enabled && !_batteryMonitor.IsConnected())
             {
-                connectButton_Click(sender, e);
+                ConnectButton_Click(sender, e);
             }
         }
         
-        private async void connectButton_Click(object sender, EventArgs e)
+        private async void ConnectButton_Click(object sender, EventArgs e)
         {
-            connectButton.Enabled = false;
+            ConnectButton.Enabled = false;
             if (_batteryMonitor.IsConnected())
             {
                 DisconnectFromSelectedDevice();
-                connectButton.Text = CONNECT_BUTTON_CONNECT;
+                ConnectButton.Text = CONNECT_BUTTON_CONNECT;
             }
             else
             {
                 var res = await ConnectToSelectedDevice();
                 if (res)
                 {
-                    connectButton.Text = CONNECT_BUTTON_DISCONNECT;
+                    ConnectButton.Text = CONNECT_BUTTON_DISCONNECT;
                 }
             }
-            connectButton.Enabled = true;
+            ConnectButton.Enabled = true;
         }
 
-        private void exitContextMenuItem_Click(object sender, EventArgs e)
+        private void ExitContextMenuItem_Click(object sender, EventArgs e)
         {
             Application.Exit();
         }
 
-        private void showContextMenuItem_Click(object sender, EventArgs e)
+        private void ShowContextMenuItem_Click(object sender, EventArgs e)
         {
             Show();
             WindowState = FormWindowState.Normal;
@@ -317,11 +317,11 @@ namespace ZMKSplit
             }
         }
 
-        private async void reconnectTimer_Tick(object sender, EventArgs e)
+        private async void ReconnectTimer_Tick(object sender, EventArgs e)
         {
             if (--_reconnectCounter == 0)
             {
-                reconnectTimer.Stop();
+                ReconnectTimer.Stop();
                 
                 Debug.Assert(_deviceID.Length > 0);
                 Debug.Assert(_deviceName.Length > 0);
@@ -330,16 +330,16 @@ namespace ZMKSplit
                 if (!res)
                 {
                     _reconnectCounter = RECONNECT_INTERVAL;
-                    reconnectTimer.Start();
+                    ReconnectTimer.Start();
                 }
                 else
                 {
-                    connectButton.Text = CONNECT_BUTTON_DISCONNECT;
+                    ConnectButton.Text = CONNECT_BUTTON_DISCONNECT;
                 }
             }
             else
             {
-                statusLabel.Text = String.Format(STATUS_CONNECTING_IN, _deviceName, _reconnectCounter);
+                StatusLabel.Text = String.Format(STATUS_CONNECTING_IN, _deviceName, _reconnectCounter);
             }
         }
     }
