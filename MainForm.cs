@@ -321,6 +321,7 @@ namespace ZMKSplit
             NotifyIcon.Icon = GetBatteryIcon(minLevel);
             if (_lastMinLevel > BATTERY_LOW_LEVEL_THRESHOLD && minLevel != -1 && minLevel <= BATTERY_LOW_LEVEL_THRESHOLD)
             {
+                _lastMinLevel = minLevel;
                 new ToastContentBuilder()
                     .AddText(BATTERY_LOW_TIP_TITLE)
                     .AddText(String.Format(BATTERY_LOW_TIP_MESSAGE, _deviceName))
