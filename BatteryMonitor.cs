@@ -81,9 +81,9 @@ namespace ZMKSplit
 
         public Dictionary<ushort, BatteryStatus> Batteries { get => _batteries; }
 
-        private Dictionary<ushort, BatteryStatus> _batteries = new Dictionary<ushort, BatteryStatus>();
+        private Dictionary<ushort, BatteryStatus> _batteries = new();
         private BLEDevice? _bleDevice;
-        private BatteryLevelChangedCallback _batteryLevelChangedCb;
+        private readonly BatteryLevelChangedCallback _batteryLevelChangedCb;
 
         public BatteryMonitor(BatteryLevelChangedCallback cb)
         {
@@ -134,7 +134,7 @@ namespace ZMKSplit
                 return new ConnectResult { Status = ConnectStatus.BatteryServiceNotFound };
             }
 
-            List<GattCharacteristicsResult?> gattCharacteristicsResults = new List<GattCharacteristicsResult?>();
+            List<GattCharacteristicsResult?> gattCharacteristicsResults = new();
             for (int i = 0; i < gattServices.Services.Count; i++)
             {
                 var gattService = gattServices.Services[i];
@@ -197,7 +197,7 @@ namespace ZMKSplit
             return _bleDevice != null;
         }
 
-        private async Task<ReadBatteryLevelResult> ReadBatteryLevel(GattCharacteristic gc)
+        private static async Task<ReadBatteryLevelResult> ReadBatteryLevel(GattCharacteristic gc)
         {
             try
             {
