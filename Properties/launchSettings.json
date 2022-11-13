@@ -1,8 +1,7 @@
 {
   "profiles": {
     "ZMKSplit": {
-      "commandName": "Project",
-      "commandLineArgs": "-devicename \"Sweep 2\"\r\n-deviceid \"BluetoothLE#BluetoothLE20:c1:9b:82:2d:22-fc:a4:2a:71:58:62\""
+      "commandName": "Project"
     }
   }
 }
