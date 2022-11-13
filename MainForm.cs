@@ -37,6 +37,7 @@ namespace ZMKSplit
         public static readonly int    BATTERY_LOW_LEVEL_THRESHOLD = 20;
         public static readonly string BATTERY_LOW_TIP_TITLE = "Low battery";
         public static readonly string BATTERY_LOW_TIP_MESSAGE = "{0} battery level is below " + BATTERY_LOW_LEVEL_THRESHOLD + "%";
+        public static readonly string BATTERY_NOT_CONNECTED_TITLE = "Not Connected";
 
         public static readonly int    RECONNECT_INTERVAL = 300;
 
@@ -302,7 +303,7 @@ namespace ZMKSplit
             if (!_batteryMonitor.IsConnected() || _batteryMonitor.Batteries.Count == 0)
             {
                 minLevel = -1;
-                NotifyIcon.Text = "Not connected";
+                NotifyIcon.Text = BATTERY_NOT_CONNECTED_TITLE;
             }
             else if (_batteryMonitor.Batteries.Count == 1)
             {
@@ -321,12 +322,12 @@ namespace ZMKSplit
             NotifyIcon.Icon = GetBatteryIcon(minLevel);
             if (_lastMinLevel > BATTERY_LOW_LEVEL_THRESHOLD && minLevel != -1 && minLevel <= BATTERY_LOW_LEVEL_THRESHOLD)
             {
-                _lastMinLevel = minLevel;
                 new ToastContentBuilder()
                     .AddText(BATTERY_LOW_TIP_TITLE)
                     .AddText(String.Format(BATTERY_LOW_TIP_MESSAGE, _deviceName))
                     .Show();
             }
+            _lastMinLevel = minLevel;
         }
 
         private void ReloadButton_MouseClick(object sender, MouseEventArgs e)

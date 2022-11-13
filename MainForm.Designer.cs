@@ -29,6 +29,7 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.DevicesListView = new System.Windows.Forms.ListView();
             this.NameColumn = new System.Windows.Forms.ColumnHeader();
             this.NotifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
@@ -88,7 +89,7 @@
             // showContextMenuItem
             // 
             this.showContextMenuItem.Name = "showContextMenuItem";
-            this.showContextMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.showContextMenuItem.Size = new System.Drawing.Size(103, 22);
             this.showContextMenuItem.Text = "Show";
             this.showContextMenuItem.Click += new System.EventHandler(this.ShowContextMenuItem_Click);
             // 
@@ -96,7 +97,7 @@
             // 
             this.exitContextMenuItem.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.exitContextMenuItem.Name = "exitContextMenuItem";
-            this.exitContextMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.exitContextMenuItem.Size = new System.Drawing.Size(103, 22);
             this.exitContextMenuItem.Text = "E&xit";
             this.exitContextMenuItem.Click += new System.EventHandler(this.ExitContextMenuItem_Click);
             // 
@@ -167,6 +168,7 @@
             this.Controls.Add(this.StatusStrip1);
             this.Controls.Add(this.ReloadButton);
             this.Controls.Add(this.DevicesListView);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "MainForm";
             this.Text = "ZMK Split Battery Status";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
