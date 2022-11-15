@@ -8,7 +8,9 @@ Once one of the batteries level falls below 20% a toast notification is shown.
 
 Dark/Light taskbar themes supported.
 
-OS Requirements: Windows 10.0.19041 and above.
+Requirements:
+- Windows 10.0.19041 and above.
+- .NET Desktop Runtime 5.0
 
 ## Screenshots:
 
