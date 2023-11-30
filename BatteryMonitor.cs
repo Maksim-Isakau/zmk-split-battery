@@ -13,6 +13,7 @@ namespace ZMKSplit
     {
         public static readonly Guid BATTERY_UUID = Guid.Parse("{0000180F-0000-1000-8000-00805F9B34FB}");
         public static readonly Guid BATTERY_LEVEL_UUID = Guid.Parse("{00002A19-0000-1000-8000-00805F9B34FB}");
+        public static readonly string BATTERY_DEFAULT_NAME = "Main";
 
         public delegate void ListDevicesCallback(string deviceName, string deviceID);
         public delegate void ListDevicesCompletionCallback();
@@ -54,7 +55,7 @@ namespace ZMKSplit
 
             public ReadBatteryLevelResult(ReadStatus status, GattCharacteristic gc, int singleValue) : this(status, "")
             {
-                Batteries[gc.AttributeHandle] = new BatteryStatus { Name = gc.UserDescription, Level = singleValue };
+                Batteries[gc.AttributeHandle] = new BatteryStatus { Name = GetBatteryNameFromGC(gc), Level = singleValue };
             }
 
             public ReadBatteryLevelResult(ReadStatus status, string errorMessage)
@@ -134,42 +135,30 @@ namespace ZMKSplit
                 return new ConnectResult { Status = ConnectStatus.BatteryServiceNotFound };
             }
 
-            List<GattCharacteristicsResult?> gattCharacteristicsResults = new();
+            var allCharacteristics = new List<GattCharacteristic>();
             for (int i = 0; i < gattServices.Services.Count; i++)
             {
                 var gattService = gattServices.Services[i];
                 var gattCharacteristics = await gattService.GetCharacteristicsForUuidAsync(BATTERY_LEVEL_UUID, BluetoothCacheMode.Uncached);
-                gattCharacteristicsResults.Add(gattCharacteristics);
-            }
 
-            // find longest
-            int maxChars = 0;
-            int selectedIndex = -1;
-            for (int i = 0; i < gattCharacteristicsResults.Count; i++)
-            {
-                if (gattCharacteristicsResults[i] != null && gattCharacteristicsResults[i]!.Characteristics.Count > maxChars)
+                foreach (var gc in gattCharacteristics!.Characteristics)
                 {
-                    maxChars = gattCharacteristicsResults[i]!.Characteristics.Count;
-                    selectedIndex = i;
-                }
-            }
-
-            if (selectedIndex != -1)
-            {
-                foreach (var gc in gattCharacteristicsResults[selectedIndex]!.Characteristics)
-                {
-                    _batteries[gc.AttributeHandle] = new BatteryStatus { Name = gc.UserDescription, Level = -1 };
+                    _batteries[gc.AttributeHandle] = new BatteryStatus { Name = GetBatteryNameFromGC(gc), Level = -1 };
                     gc.ValueChanged += OnGattValueChanged;
-                    
+                    allCharacteristics.Add(gc);
                 }
-                _bleDevice = new BLEDevice(deviceName, dev, gattCharacteristicsResults[selectedIndex]!.Characteristics);
+            }
+
+            if (_batteries.Count != 0)
+            {
+                _bleDevice = new BLEDevice(deviceName, dev, allCharacteristics);
 
                 var readResult = await ReadBatteryLevels();
                 if (readResult.Status == ReadStatus.Success)
                 {
                     _batteries = readResult.Batteries;
                 }
-                
+
                 return new ConnectResult { Status = ConnectStatus.Connected };
             }
             else
@@ -195,6 +184,18 @@ namespace ZMKSplit
         public bool IsConnected()
         {
             return _bleDevice != null;
+        }
+
+        private static string GetBatteryNameFromGC(GattCharacteristic gc)
+        {
+            if (string.IsNullOrWhiteSpace(gc.UserDescription))
+            {
+                return BATTERY_DEFAULT_NAME;
+            }
+            else
+            {
+                return gc.UserDescription;
+            }
         }
 
         private static async Task<ReadBatteryLevelResult> ReadBatteryLevel(GattCharacteristic gc)
@@ -246,7 +247,7 @@ namespace ZMKSplit
             byte[] data = new byte[args.CharacteristicValue.Length];
             DataReader.FromBuffer(args.CharacteristicValue).ReadBytes(data);
             int lvl = data[0] == 255 ? -1 : data[0];
-            _batteries[sender.AttributeHandle] = new BatteryStatus { Name = sender.UserDescription, Level = lvl };
+            _batteries[sender.AttributeHandle] = new BatteryStatus { Name = GetBatteryNameFromGC(sender), Level = lvl };
             _batteryLevelChangedCb();
         }
     }
