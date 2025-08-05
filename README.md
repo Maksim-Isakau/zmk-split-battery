@@ -33,10 +33,10 @@ msbuild ZMKSplit.sln /p:Configuration=Release /p:Platform="Any CPU"
 The project includes a GitHub Actions workflow that automatically builds the application on every push to any branch and creates releases when you push version tags.
 
 **To create a release:**
-1. Create and push a version tag (e.g., `v1.0.0`):
+1. Create and push a version tag (e.g., `v1.0`):
    ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
+   git tag v1.0
+   git push origin v1.0
    ```
 2. The workflow will automatically:
    - Build the Release configuration
