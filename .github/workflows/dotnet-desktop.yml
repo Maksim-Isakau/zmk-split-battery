@@ -1,0 +1,48 @@
+name: .NET Desktop Build
+
+on:
+  push:
+    branches: [ "**" ]  # Trigger on any branch
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build:
+    runs-on: windows-latest  # Required for Windows Forms/.NET 9.0-windows
+
+    env:
+      Solution_Name: ZMKSplit.sln
+      Project_Name: ZMKSplit.csproj
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Install the .NET 9.0 SDK
+    - name: Install .NET 9.0 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+
+    # Add MSBuild to the PATH
+    - name: Setup MSBuild.exe
+      uses: microsoft/setup-msbuild@v2
+
+    # Restore NuGet packages
+    - name: Restore NuGet packages
+      run: dotnet restore $env:Solution_Name
+
+    # Build the solution using MSBuild (better for Windows-specific projects)
+    - name: Build the solution
+      run: msbuild $env:Solution_Name /p:Configuration=Release /p:Platform="Any CPU" /p:RestorePackages=false /verbosity:minimal
+
+    # Upload the build artifacts
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ZMKSplit-Release
+        path: |
+          bin/Release/net9.0-windows10.0.19041.0/
+          !bin/Release/net9.0-windows10.0.19041.0/*.pdb
