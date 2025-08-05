@@ -184,11 +184,11 @@ namespace ZMKSplit
                 return false;
             
             string deviceName = DevicesListView.SelectedItems[0].Text;
-            string deviceID = (string)DevicesListView.SelectedItems[0].Tag;
+            string? deviceID = (string?)DevicesListView.SelectedItems[0].Tag;
 
             ReconnectTimer.Stop();
 
-            return await ConnectToDevice(deviceName, deviceID);
+            return deviceID != null ? await ConnectToDevice(deviceName, deviceID) : false;
         }
 
         private void DisconnectFromSelectedDevice()
@@ -238,7 +238,8 @@ namespace ZMKSplit
                 }
                 else
                 {
-                    key.DeleteValue(Application.ProductName, false);
+                    if (Application.ProductName != null)
+                        key.DeleteValue(Application.ProductName, false);
                 }
                 return true;
             }

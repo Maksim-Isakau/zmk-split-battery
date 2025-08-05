@@ -123,47 +123,59 @@ namespace ZMKSplit
         public async Task<ConnectResult> Connect(string deviceName, string deviceID)
         {
             Disconnect();
-            var dev = await BluetoothLEDevice.FromIdAsync(deviceID);
-            if (dev == null)
-            {
-                return new ConnectResult { Status = ConnectStatus.DeviceNotFound };
-            }
             
-            var gattServices = await dev.GetGattServicesForUuidAsync(BATTERY_UUID, BluetoothCacheMode.Uncached).AsTask();
-            if (gattServices == null)
+            try
             {
-                return new ConnectResult { Status = ConnectStatus.BatteryServiceNotFound };
-            }
-
-            var allCharacteristics = new List<GattCharacteristic>();
-            for (int i = 0; i < gattServices.Services.Count; i++)
-            {
-                var gattService = gattServices.Services[i];
-                var gattCharacteristics = await gattService.GetCharacteristicsForUuidAsync(BATTERY_LEVEL_UUID, BluetoothCacheMode.Uncached);
-
-                foreach (var gc in gattCharacteristics!.Characteristics)
+                var dev = await BluetoothLEDevice.FromIdAsync(deviceID);
+                if (dev == null)
                 {
-                    _batteries[gc.AttributeHandle] = new BatteryStatus { Name = GetBatteryNameFromGC(gc), Level = -1 };
-                    gc.ValueChanged += OnGattValueChanged;
-                    allCharacteristics.Add(gc);
+                    return new ConnectResult { Status = ConnectStatus.DeviceNotFound, ErrorMessage = "Device not found or not available" };
                 }
-            }
-
-            if (_batteries.Count != 0)
-            {
-                _bleDevice = new BLEDevice(deviceName, dev, allCharacteristics);
-
-                var readResult = await ReadBatteryLevels();
-                if (readResult.Status == ReadStatus.Success)
+                
+                var gattServices = await dev.GetGattServicesForUuidAsync(BATTERY_UUID, BluetoothCacheMode.Uncached).AsTask();
+                if (gattServices == null)
                 {
-                    _batteries = readResult.Batteries;
+                    return new ConnectResult { Status = ConnectStatus.BatteryServiceNotFound };
                 }
 
-                return new ConnectResult { Status = ConnectStatus.Connected };
+                var allCharacteristics = new List<GattCharacteristic>();
+                for (int i = 0; i < gattServices.Services.Count; i++)
+                {
+                    var gattService = gattServices.Services[i];
+                    var gattCharacteristics = await gattService.GetCharacteristicsForUuidAsync(BATTERY_LEVEL_UUID, BluetoothCacheMode.Uncached);
+
+                    foreach (var gc in gattCharacteristics!.Characteristics)
+                    {
+                        _batteries[gc.AttributeHandle] = new BatteryStatus { Name = GetBatteryNameFromGC(gc), Level = -1 };
+                        gc.ValueChanged += OnGattValueChanged;
+                        allCharacteristics.Add(gc);
+                    }
+                }
+
+                if (_batteries.Count != 0)
+                {
+                    _bleDevice = new BLEDevice(deviceName, dev, allCharacteristics);
+
+                    var readResult = await ReadBatteryLevels();
+                    if (readResult.Status == ReadStatus.Success)
+                    {
+                        _batteries = readResult.Batteries;
+                    }
+
+                    return new ConnectResult { Status = ConnectStatus.Connected };
+                }
+                else
+                {
+                    return new ConnectResult { Status = ConnectStatus.BatteryLevelCharacteristicNotFound };
+                }
             }
-            else
+            catch (ArgumentException ex)
             {
-                return new ConnectResult { Status = ConnectStatus.BatteryLevelCharacteristicNotFound };
+                return new ConnectResult { Status = ConnectStatus.DeviceNotFound, ErrorMessage = $"Invalid device ID: {ex.Message}" };
+            }
+            catch (Exception ex)
+            {
+                return new ConnectResult { Status = ConnectStatus.DeviceNotFound, ErrorMessage = $"Connection failed: {ex.Message}" };
             }
         }
 
