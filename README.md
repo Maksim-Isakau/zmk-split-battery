@@ -30,7 +30,25 @@ msbuild ZMKSplit.sln /p:Configuration=Release /p:Platform="Any CPU"
 
 ### GitHub Actions
 
-The project includes a GitHub Actions workflow that automatically builds the application on every push to `master`
+The project includes a GitHub Actions workflow that automatically builds the application on every push to any branch and creates releases when you push version tags.
+
+**To create a release:**
+1. Create and push a version tag (e.g., `v1.0.0`):
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+2. The workflow will automatically:
+   - Build the Release configuration
+   - Create a ZIP file with the compiled application
+   - Create a GitHub release with the ZIP file attached
+   - Generate release notes from recent commits
+
+The workflow:
+- Builds both on feature branches (for testing) and on version tags (for releases)
+- Uses .NET 9.0 SDK and MSBuild for Windows-specific dependencies
+- Creates downloadable artifacts for every build
+- Runs on Windows runners to ensure compatibility with Windows Runtime APIs
 
 ## Screenshots:
 

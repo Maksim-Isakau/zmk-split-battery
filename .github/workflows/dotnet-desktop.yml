@@ -3,6 +3,7 @@ name: .NET Desktop Build
 on:
   push:
     branches: [ "**" ]  # Trigger on any branch
+    tags: [ 'v*' ]  # Trigger on version tags
   pull_request:
     branches: [ master, main ]
 
@@ -46,3 +47,35 @@ jobs:
         path: |
           bin/Release/net9.0-windows10.0.19041.0/
           !bin/Release/net9.0-windows10.0.19041.0/*.pdb
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: ZMKSplit-Release
+        path: release-files
+    
+    - name: Create release archive
+      run: |
+        Compress-Archive -Path "release-files\*" -DestinationPath "ZMKSplit-${{ github.ref_name }}.zip"
+      shell: powershell
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: ZMKSplit ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        files: |
+          ZMKSplit-${{ github.ref_name }}.zip
